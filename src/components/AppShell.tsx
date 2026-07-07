@@ -16,7 +16,7 @@ const bottomNav = {
     ["Dashboard", "/buyer/dashboard",   LayoutDashboard],
     ["Browse",    "/buyer/produce",     ShoppingBasket],
     ["Orders",    "/buyer/orders",      ClipboardList],
-    ["Deliveries","/buyer/deliveries",  Route],
+    ["Track delivery","/buyer/deliveries",  Route],
     ["Invoices",  "/buyer/invoices",    Receipt],
   ],
   farmer: [

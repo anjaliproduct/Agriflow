@@ -23,9 +23,24 @@ export default function OrderWorkspace() {
   const [pickupBlocked, setPickupBlocked] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
 
+  const stepRefs = useRef<Partial<Record<Step, HTMLDivElement | null>>>({});
+  const scrollOnNextExpand = useRef(false);
+
   useEffect(() => {
-    if (order) setExpandedStep(getActiveStep(order.status, order.invoiceStatus, order.paymentStatus));
+    if (order) {
+      scrollOnNextExpand.current = true;
+      setExpandedStep(getActiveStep(order.status, order.invoiceStatus, order.paymentStatus));
+    }
   }, [order?.status, order?.invoiceStatus, order?.paymentStatus]);
+
+  useEffect(() => {
+    if (!scrollOnNextExpand.current || !expandedStep) return;
+    scrollOnNextExpand.current = false;
+    const el = stepRefs.current[expandedStep];
+    if (el) {
+      setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    }
+  }, [expandedStep]);
 
   if (!order) return <Navigate to="/manager/orders" replace />;
 
@@ -205,6 +220,7 @@ export default function OrderWorkspace() {
                   expanded={isExpanded}
                   onToggle={() => toggleStep(step)}
                   footer={stepFooters[step]}
+                  cardRef={(el) => { stepRefs.current[step] = el; }}
                 >
                   {step === "Allocation" ? (
                     <AllocationPanel
@@ -311,6 +327,7 @@ function AccordionItem({
   onToggle,
   footer,
   children,
+  cardRef,
 }: {
   index: number;
   step: Step;
@@ -319,6 +336,7 @@ function AccordionItem({
   onToggle: () => void;
   footer?: React.ReactNode;
   children: React.ReactNode;
+  cardRef?: (el: HTMLDivElement | null) => void;
 }) {
   const cardClass = state === "active"
     ? "rounded-xl border border-slate-300 bg-white shadow-sm"
@@ -327,7 +345,7 @@ function AccordionItem({
       : "rounded-xl border border-slate-200 bg-white opacity-60";
 
   return (
-    <div className={cardClass}>
+    <div className={cardClass} ref={cardRef}>
       <button
         type="button"
         className="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-slate-50/50 rounded-xl"

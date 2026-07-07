@@ -21,7 +21,7 @@ const nav = {
     ["Dashboard", "/buyer/dashboard", LayoutDashboard],
     ["Browse Produce", "/buyer/produce", ShoppingBasket],
     ["My Orders", "/buyer/orders", ClipboardList],
-    ["Deliveries", "/buyer/deliveries", Route],
+    ["Track delivery", "/buyer/deliveries", Route],
     ["Invoices", "/buyer/invoices", Receipt],
   ],
   farmer: [

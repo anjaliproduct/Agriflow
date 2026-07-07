@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Camera, CheckCircle2, ChevronRight, Mic, PenLine } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ChevronRight, Mic, PenLine } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAppStore } from "../../store/appStore";
@@ -159,19 +159,19 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
                 {/* Meta stats */}
                 <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Committed</p>
+                    <p className="text-xs text-slate-500 font-medium">Committed</p>
                     <p className="mt-0.5 text-sm font-semibold text-slate-900">{item.declaredQuantity} kg</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Available</p>
+                    <p className="text-xs text-slate-500 font-medium">Available</p>
                     <p className="mt-0.5 text-sm font-semibold text-slate-900">{item.declaredQuantity - item.reservedQuantity} kg</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Grade</p>
+                    <p className="text-xs text-slate-500 font-medium">Grade</p>
                     <p className="mt-0.5 text-sm font-semibold text-slate-900">Grade {item.estimatedGrade}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Last Updated</p>
+                    <p className="text-xs text-slate-500 font-medium">Last Updated</p>
                     <p className="mt-0.5 text-sm font-semibold text-slate-900">{item.lastUpdated}</p>
                   </div>
                 </div>
@@ -244,35 +244,35 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
                             className="w-full rounded-lg object-cover"
                             style={{ height: "200px" }}
                           />
-                          <p className="mt-2 pb-0.5 text-center text-xs font-medium text-slate-500">{label}</p>
+                          <p className="mt-2 pb-0.5 flex items-center justify-center gap-1 text-xs font-medium text-slate-500">
+                            <CheckCircle2 size={11} style={{ color: "#99C30C" }} />
+                            {label}
+                          </p>
                         </div>
                       ))}
                     </div>
 
-                    {/* Warning banner */}
-                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                      <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-500" />
-                      <p className="text-xs text-amber-800">
-                        Image estimates are indicative only — actual quantity is verified at collection and may differ by <span className="font-semibold">±10–15%</span>.
-                      </p>
-                    </div>
-
-                    {/* Estimated amount */}
-                    <div>
-                      <label className="block">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your estimated quantity (kg)</span>
-                        <input
-                          className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#99C30C] focus:ring-2 focus:ring-[#99C30C]/20 transition-all"
-                          type="number"
-                          min={0}
-                          placeholder={`e.g. ${item.declaredQuantity}`}
-                          value={imageEstimate}
-                          onChange={(e) => setImageEstimate(e.target.value)}
-                        />
-                      </label>
-                      <p className="mt-1.5 text-xs text-slate-400">
-                        Suggested range based on photo: <span className="font-medium text-slate-600">{Math.round(item.declaredQuantity * 0.88)}–{Math.round(item.declaredQuantity * 1.12)} kg</span>
-                      </p>
+                    {/* Review section */}
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-950">Review</p>
+                      <div className="flex divide-x divide-slate-100 px-0">
+                        <div className="flex-1 px-4 py-3">
+                          <p className="text-xs font-medium text-slate-500">Estimated range</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">{Math.round(item.declaredQuantity * 0.88)}–{Math.round(item.declaredQuantity * 1.12)} kg</p>
+                        </div>
+                        <div className="flex-1 px-4 py-3">
+                          <p className="text-xs font-medium text-slate-500">AI confidence</p>
+                          <p className="mt-1 text-sm font-semibold" style={{ color: "#324D1D" }}>High — 87%</p>
+                        </div>
+                        <div className="flex-1 px-4 py-3">
+                          <p className="text-xs font-medium text-slate-500">Current stock</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">{item.declaredQuantity - item.reservedQuantity} kg</p>
+                        </div>
+                        <div className="flex-1 px-4 py-3">
+                          <p className="text-xs font-medium text-slate-500">Updated stock</p>
+                          <p className="mt-1 text-sm font-semibold" style={{ color: "#324D1D" }}>{item.declaredQuantity} kg</p>
+                        </div>
+                      </div>
                     </div>
 
                     <button
@@ -280,10 +280,8 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
                       className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                       style={{ backgroundColor: "#324D1D" }}
                       onClick={() => {
-                        if (imageEstimate) {
-                          updateInventory(item.id, Number(imageEstimate), item.harvestDate, item.estimatedGrade as Grade);
-                          navigate(from);
-                        }
+                        updateInventory(item.id, Math.round(item.declaredQuantity * 1.0), item.harvestDate, item.estimatedGrade as Grade);
+                        navigate(from);
                       }}
                     >
                       <CheckCircle2 size={16} /> Submit Update
