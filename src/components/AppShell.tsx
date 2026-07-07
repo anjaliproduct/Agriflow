@@ -1,19 +1,80 @@
-import { Outlet } from "react-router";
+import { Outlet, NavLink } from "react-router";
 import { useState } from "react";
+import { BarChart3, Bell, ClipboardList, CreditCard, LayoutDashboard, Package, Route, Receipt, ShoppingBasket, Sprout, Truck, Users } from "lucide-react";
 import NotificationPanel from "./NotificationPanel";
 import Sidebar from "./Sidebar";
+import { useAppStore } from "../store/appStore";
+
+const bottomNav = {
+  manager: [
+    ["Dashboard", "/manager/dashboard", LayoutDashboard],
+    ["Orders",    "/manager/orders",    ClipboardList],
+    ["Runs",      "/manager/pickup-runs", Truck],
+    ["Finance",   "/manager/finance",   CreditCard],
+  ],
+  buyer: [
+    ["Dashboard", "/buyer/dashboard",   LayoutDashboard],
+    ["Browse",    "/buyer/produce",     ShoppingBasket],
+    ["Orders",    "/buyer/orders",      ClipboardList],
+    ["Deliveries","/buyer/deliveries",  Route],
+    ["Invoices",  "/buyer/invoices",    Receipt],
+  ],
+  farmer: [
+    ["Dashboard", "/farmer/dashboard",  LayoutDashboard],
+    ["Inventory", "/farmer/inventory",  Package],
+    ["Allocations","/farmer/allocations", BarChart3],
+    ["Pickups",   "/farmer/pickups",    Truck],
+    ["Payments",  "/farmer/payments",   CreditCard],
+  ],
+} as const;
 
 export default function AppShell() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const role = useAppStore((s) => s.role);
+  const notice = useAppStore((s) => s.notice);
+  const tabs = bottomNav[role];
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-100">
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar notificationsOpen={notificationsOpen} onToggleNotifications={() => setNotificationsOpen((open) => !open)} />
-        <main className="min-w-0 flex-1 overflow-y-auto bg-white p-6">
+    <div className="h-[100dvh] overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
+      <div className="flex h-full overflow-hidden">
+        {/* Sidebar — desktop only */}
+        <div className="hidden sm:block">
+          <Sidebar notificationsOpen={notificationsOpen} onToggleNotifications={() => setNotificationsOpen((open) => !open)} />
+        </div>
+        <div className="hidden sm:block w-px shrink-0 bg-slate-200" />
+
+        {/* Main content */}
+        <main className="min-w-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6 pb-20 sm:pb-6">
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 border-t border-slate-200 bg-white flex items-stretch" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {/* Bell tab */}
+        <button
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium relative"
+          style={{ color: notificationsOpen ? "#99C30C" : "#64748b" }}
+          onClick={() => setNotificationsOpen((o) => !o)}
+        >
+          <Bell size={20} />
+          <span>Alerts</span>
+          {notice && <span className="absolute top-2 right-1/2 ml-3 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#FE8B02" }} />}
+        </button>
+        {tabs.map(([label, href, Icon]) => (
+          <NavLink
+            key={href}
+            to={href}
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
+            style={({ isActive }) => ({ color: isActive ? "#99C30C" : "#64748b" })}
+          >
+            <Icon size={20} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Notifications panel */}
       {notificationsOpen ? (
         <div className="fixed inset-0 z-40">
           <button

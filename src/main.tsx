@@ -53,6 +53,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="farmer/dashboard" element={<FarmerDashboard />} />
           <Route path="farmer/inventory" element={<MyInventory />} />
           <Route path="farmer/inventory/update" element={<InventoryUpdate />} />
+          <Route path="farmer/inventory/update/:itemId" element={<InventoryUpdate />} />
           <Route path="farmer/allocations" element={<FarmerAllocations />} />
           <Route path="farmer/pickups" element={<FarmerPickups />} />
           <Route path="farmer/payments" element={<FarmerPayments />} />
