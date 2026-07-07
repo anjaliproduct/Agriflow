@@ -1,4 +1,4 @@
-import { AlertCircle, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, Leaf, MapPin, Milestone, MoreHorizontal, Plus, Scale, SlidersHorizontal, Sprout, Star, Truck, Wallet } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, GripVertical, Leaf, MapPin, Milestone, MoreHorizontal, Pencil, Plus, Scale, SlidersHorizontal, Sparkles, Sprout, Star, Store, Truck, Wallet, Warehouse } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +10,7 @@ import { OrderStatus } from "../../types";
 import { suggestAllocation } from "../../utils/allocation";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 
-const steps = ["Allocation", "Confirmation", "Pickup", "Delivery", "Settlement"] as const;
+const steps = ["Allocation", "Confirmation", "Pickup", "Verification", "Dispatch", "Settlement"] as const;
 type Step = typeof steps[number];
 
 export default function OrderWorkspace() {
@@ -60,49 +60,63 @@ export default function OrderWorkspace() {
   };
 
   const stepFooters: Partial<Record<Step, React.ReactNode>> = {
-    Allocation:
-      (order.status === "New" || order.status === "Under Review") ? (
-        <button className="btn-primary" onClick={do_.confirmAllocation}><CheckCircle2 size={15} /> Confirm Allocation</button>
-      ) : (
-        <button className="btn-secondary" onClick={do_.confirmAllocation}>Re-allocate</button>
-      ),
-    Confirmation: (
-      <div className="flex w-full items-center justify-between gap-4">
-        {order.status !== "Allocated" ? (
-          <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
-            <CheckCircle2 size={14} className="text-green-500" /> Pickup scheduled
-          </span>
-        ) : <div />}
-        {order.status === "Allocated" ? (
-          <button
-            className="btn-primary"
-            onClick={() => {
-              if (!allConfirmed) { setPickupBlocked(true); return; }
-              setPickupBlocked(false);
-              do_.schedulePickup();
-            }}
-          >
-            <Truck size={15} /> Schedule Pickup
-          </button>
-        ) : null}
-      </div>
+    Allocation: (order.status === "New" || order.status === "Under Review") ? (
+      <button className="btn-primary" onClick={do_.confirmAllocation}><CheckCircle2 size={15} /> Confirm Allocation</button>
+    ) : (
+      <button className="btn-secondary" onClick={do_.confirmAllocation}>Re-allocate</button>
     ),
-    Pickup: (
-      <div className="flex w-full items-center justify-between gap-4">
-        {order.status !== "Pickup Scheduled" ? (
-          <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
-            <CheckCircle2 size={14} className="text-green-500" /> Collected
-          </span>
-        ) : <div />}
-        {order.status === "Pickup Scheduled" ? (
-          <button className="btn-primary" onClick={() => do_.advanceOrder("Collected")}>Mark Collected</button>
-        ) : null}
-      </div>
+    Confirmation: order.status === "Allocated" ? (
+      <button
+        className="btn-primary"
+        onClick={() => {
+          if (!allConfirmed) { setPickupBlocked(true); return; }
+          setPickupBlocked(false);
+          do_.schedulePickup();
+        }}
+      >
+        <Truck size={15} /> Schedule Pickup
+      </button>
+    ) : (
+      <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
+        <CheckCircle2 size={14} className="text-green-500" /> Pickup scheduled
+      </span>
     ),
-    Delivery: order.status === "Dispatched" ? (
+    Pickup: order.status === "Pickup Scheduled" ? (
+      <button className="btn-primary" onClick={() => do_.advanceOrder("Collected")}>Mark Collected</button>
+    ) : (
+      <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
+        <CheckCircle2 size={14} className="text-green-500" /> Collected
+      </span>
+    ),
+    Verification: order.status === "Collected" ? (
+      <button className="btn-primary" onClick={do_.verifyQuality}>Mark as Verified</button>
+    ) : (
+      <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
+        <CheckCircle2 size={14} className="text-green-500" /> Verified
+      </span>
+    ),
+    Dispatch: order.status === "Quality Verified" ? (
+      <button className="btn-primary" onClick={() => do_.advanceOrder("Dispatched")}>Dispatch Order</button>
+    ) : order.status === "Dispatched" ? (
       <button className="btn-primary" onClick={() => do_.advanceOrder("Delivered")}>Mark Delivered</button>
-    ) : null,
-    Settlement: undefined,
+    ) : (
+      <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
+        <CheckCircle2 size={14} className="text-green-500" /> Delivered
+      </span>
+    ),
+    Settlement: order.status !== "Settled" && order.paymentStatus !== "Released" ? (
+      <button
+        className="btn-primary"
+        disabled={!["Delivered"].includes(order.status)}
+        onClick={do_.releasePayment}
+      >
+        Release Payment
+      </button>
+    ) : (
+      <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
+        <CheckCircle2 size={14} className="text-green-500" /> Payment released
+      </span>
+    ),
   };
 
   const toggleStep = (step: Step) => setExpandedStep(expandedStep === step ? null : step);
@@ -168,7 +182,7 @@ export default function OrderWorkspace() {
               <Metric
                 icon={daysToDelivery <= 1 ? Clock : MapPin}
                 iconBg={daysToDelivery <= 1 ? "bg-red-50 text-red-500" : daysToDelivery <= 3 ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-500"}
-                label="Delivery"
+                label="Dispatch"
                 value={daysToDelivery > 0 ? `in ${daysToDelivery}d` : daysToDelivery === 0 ? "Today" : "Overdue"}
                 tone={daysToDelivery <= 1 ? "warn" : daysToDelivery <= 3 ? "caution" : "normal"}
               />
@@ -214,7 +228,12 @@ export default function OrderWorkspace() {
 
                   {step === "Pickup" ? (
                     <div>
-                      <SectionTitle title="Coordinate pickup" description="Track the pickup run and farm collection route." />
+                      <div className="flex items-start justify-between gap-3">
+                        <SectionTitle title="Coordinate pickup" description="Track the pickup run and farm collection route." />
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
+                          <Sparkles size={11} /> Auto-scheduled — confirm or adjust
+                        </span>
+                      </div>
                       {pickupRun ? (
                         <div className="mt-4 space-y-4">
                           <RouteMap
@@ -225,7 +244,7 @@ export default function OrderWorkspace() {
                           />
                           <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
                             <PickupRunReference run={pickupRun} />
-                            <div className="min-w-[180px]">
+                            <div className="min-w-[200px]">
                               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Route order</p>
                               <VerticalRouteTimeline run={pickupRun} />
                             </div>
@@ -237,28 +256,20 @@ export default function OrderWorkspace() {
                     </div>
                   ) : null}
 
-                  {step === "Delivery" ? (
-                    <div className="space-y-5">
-                      <div>
-                        <div className="flex items-start justify-between gap-3">
-                          <SectionTitle title="Collection verification" description="Declared vs collected quantity at the collection centre." />
-                          {order.status === "Collected" ? (
-                            <button className="btn-primary shrink-0 py-1.5 text-xs" onClick={do_.verifyQuality}>Verify Quality</button>
-                          ) : null}
-                        </div>
-                        <div className="mt-4">
-                          <VerificationSummary orderStatus={order.status} quantity={order.quantity} verifiedQuantity={order.verifiedQuantity} verifiedGrade={order.verifiedGrade} run={pickupRun} />
-                        </div>
+                  {step === "Verification" ? (
+                    <div>
+                      <SectionTitle title="Collection verification" description="Declared vs collected at the collection centre." />
+                      <div className="mt-3">
+                        <VerificationSummary key={order.id} orderStatus={order.status} quantity={order.quantity} verifiedQuantity={order.verifiedQuantity} verifiedGrade={order.verifiedGrade} run={pickupRun} allocations={suggested} allocationRows={allocationRows} inventory={inventory} />
                       </div>
-                      <div className="border-t border-slate-100" />
-                      <div>
-                        <div className="flex items-start justify-between gap-3">
-                          <SectionTitle title="Dispatch and delivery" description="Track the order from dispatch to confirmed buyer delivery." />
-                          {order.status === "Quality Verified" ? (
-                            <button className="btn-primary shrink-0 py-1.5 text-xs" onClick={() => do_.advanceOrder("Dispatched")}>Dispatch Order</button>
-                          ) : null}
-                        </div>
-                        <div className="mt-4"><DeliverySummary orderStatus={order.status} run={pickupRun} /></div>
+                    </div>
+                  ) : null}
+
+                  {step === "Dispatch" ? (
+                    <div>
+                      <SectionTitle title="Delivery Address" description={BUYER_ADDRESSES[order.buyer] ?? order.buyer} />
+                      <div className="mt-5">
+                        <DeliveryMap orderStatus={order.status} buyer={order.buyer} run={pickupRun} />
                       </div>
                     </div>
                   ) : null}
@@ -268,6 +279,7 @@ export default function OrderWorkspace() {
                       order={order}
                       invoiceAmount={invoiceAmount}
                       payment={payment}
+                      allocationRows={allocationRows}
                       onOpenInvoice={() => setInvoiceModalOpen(true)}
                       onReleasePayment={do_.releasePayment}
                     />
@@ -395,6 +407,10 @@ function AllocationPanel({
           title="Approve suggested allocation"
           description="Rule-based suggestion using quantity available, quality, freshness/FIFO, route distance, and existing commitments."
         />
+      </div>
+      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <Sparkles size={11} className="shrink-0" />
+        Auto-suggested by rules — review and adjust if needed. You don't need to build this from scratch.
       </div>
       <AllocationTable rows={rows} />
       {totalSuggested < requiredQuantity ? (
@@ -572,25 +588,60 @@ function ConfirmationTable({ allocations, confirmed }: { allocations: ReturnType
 }
 
 function PickupRunReference({ run }: { run: ReturnType<typeof useAppStore.getState>["pickupRuns"][number] | undefined }) {
+  const [fields, setFields] = useState(() => run
+    ? { driver: run.driver, vehicle: run.vehicle, date: run.date, timeWindow: `${run.stops[0]?.readyTime ?? "7:00 AM"} – ${run.eta}` }
+    : { driver: "", vehicle: "", date: "", timeWindow: "" }
+  );
+
   if (!run) return <p className="text-sm text-slate-400">No pickup run linked yet.</p>;
+
+  const set = (key: keyof typeof fields) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setFields((f) => ({ ...f, [key]: e.target.value }));
+
   return (
     <div className="rounded-lg border border-slate-200 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-slate-400">Pickup Run</p>
-          <p className="mt-0.5 text-base font-semibold text-slate-950">{run.id}</p>
+      {/* Header: run ID + status + edit button */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <p className="text-base font-semibold text-slate-950">{run.id}</p>
+          <StatusBadge status={run.status} />
         </div>
-        <StatusBadge status={run.status} />
+        <Link
+          to={`/manager/pickup-runs/${run.id}`}
+          className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
+        >
+          <Pencil size={11} /> Edit details
+        </Link>
       </div>
-      <div className="mt-4 grid gap-4 sm:grid-cols-4">
-        <Info label="Driver" value={run.driver} />
-        <Info label="Date" value={formatShortDate(run.date)} />
-        <Info label="Stops" value={`${run.stops.length}`} />
-        <Info label="Status" value={run.status} />
+
+      {/* Inline-editable fields — no layout shift */}
+      <div className="mt-3 grid gap-x-6 gap-y-0 sm:grid-cols-2">
+        <InlineField label="Driver" value={fields.driver} onChange={set("driver")} />
+        <InlineField label="Vehicle" value={fields.vehicle} onChange={set("vehicle")} />
+        <InlineField label="Date" value={fields.date} onChange={set("date")} type="date" />
+        <InlineField label="Time window" value={fields.timeWindow} onChange={set("timeWindow")} placeholder="e.g. 7:00 AM – 3:00 PM" />
       </div>
-      <Link className="mt-4 inline-flex text-sm font-semibold text-leaf hover:text-green-900" to={`/manager/pickup-runs/${run.id}`}>
-        View Pickup Run →
-      </Link>
+    </div>
+  );
+}
+
+function InlineField({ label, value, onChange, type = "text", placeholder }: {
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className="py-2">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder ?? "—"}
+        className="mt-0.5 w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300 hover:bg-slate-50 focus:bg-slate-50 rounded px-1 -mx-1"
+      />
     </div>
   );
 }
@@ -602,15 +653,30 @@ function parseMinutes(time: string) {
 }
 
 function VerticalRouteTimeline({ run }: { run: ReturnType<typeof useAppStore.getState>["pickupRuns"][number] }) {
-  const allNodes = [
-    ...run.stops.map((stop) => ({ label: stop.farmName, time: stop.readyTime, status: stop.status, isFinal: false })),
-    { label: run.collectionCenter, time: run.eta, status: "Final" as const, isFinal: true },
+  const [stops, setStops] = useState(run.stops);
+  const dragIndex = useRef<number | null>(null);
+
+  const onDragStart = (i: number) => { dragIndex.current = i; };
+  const onDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (dragIndex.current === null || dragIndex.current === i) return;
+    const next = [...stops];
+    const [moved] = next.splice(dragIndex.current, 1);
+    next.splice(i, 0, moved);
+    dragIndex.current = i;
+    setStops(next);
+  };
+  const onDragEnd = () => { dragIndex.current = null; };
+
+  const nodes = [
+    ...stops.map((stop, i) => ({ label: stop.farmName, time: stop.readyTime, status: stop.status, isFinal: false, index: i })),
+    { label: run.collectionCenter, time: run.eta, status: "Final" as const, isFinal: true, index: stops.length },
   ];
 
   return (
     <div>
-      {allNodes.map((node, i) => {
-        const isLast = i === allNodes.length - 1;
+      {nodes.map((node, i) => {
+        const isLast = i === nodes.length - 1;
         const dotBg = node.isFinal
           ? "bg-leaf text-white"
           : node.status === "Loaded"
@@ -620,8 +686,22 @@ function VerticalRouteTimeline({ run }: { run: ReturnType<typeof useAppStore.get
               : "bg-slate-100 text-slate-400";
 
         return (
-          <div key={i} className="flex gap-0">
-            {/* Left column: dot + vertical connector */}
+          <div
+            key={node.label + i}
+            className="flex gap-0"
+            draggable={!node.isFinal}
+            onDragStart={!node.isFinal ? () => onDragStart(i) : undefined}
+            onDragOver={!node.isFinal ? (e) => onDragOver(e, i) : undefined}
+            onDragEnd={onDragEnd}
+          >
+            {/* Drag handle */}
+            <div className="flex w-5 flex-col items-center pt-1">
+              {!node.isFinal ? (
+                <GripVertical size={12} className="cursor-grab text-slate-300 active:cursor-grabbing" />
+              ) : <div className="w-3" />}
+            </div>
+
+            {/* Dot + connector */}
             <div className="flex flex-col items-center" style={{ width: 24 }}>
               <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${dotBg}`}>
                 {node.isFinal ? "★" : node.status === "Loaded" ? <Check size={11} strokeWidth={3} /> : i + 1}
@@ -629,11 +709,10 @@ function VerticalRouteTimeline({ run }: { run: ReturnType<typeof useAppStore.get
               {!isLast ? <div className="w-px flex-1 bg-slate-200" style={{ minHeight: 32 }} /> : null}
             </div>
 
-            {/* Right column: horizontal dash + time + label */}
+            {/* Time + label */}
             <div className={`flex min-w-0 flex-col ${!isLast ? "pb-4" : ""}`} style={{ paddingTop: 3 }}>
-              <div className="flex items-center gap-0">
-                <div className="mr-2 h-px w-6 bg-slate-200" />
-                <span className="mr-3 text-xs font-semibold tabular-nums text-slate-500">{node.time}</span>
+              <div className="flex items-center gap-2 pl-2">
+                <span className="text-xs font-semibold tabular-nums text-slate-400">{node.time}</span>
                 <span className={`text-sm font-semibold ${node.isFinal ? "text-leaf" : "text-slate-900"}`}>{node.label}</span>
               </div>
             </div>
@@ -644,33 +723,168 @@ function VerticalRouteTimeline({ run }: { run: ReturnType<typeof useAppStore.get
   );
 }
 
-function VerificationSummary({ orderStatus, quantity, verifiedQuantity, verifiedGrade, run }: {
+function VerificationSummary({ orderStatus, verifiedQuantity, verifiedGrade, run, allocations, allocationRows, inventory }: {
   orderStatus: OrderStatus;
   quantity: number;
   verifiedQuantity?: number;
   verifiedGrade?: string;
   run: ReturnType<typeof useAppStore.getState>["pickupRuns"][number] | undefined;
+  allocations: ReturnType<typeof suggestAllocation>;
+  allocationRows: AllocationRow[];
+  inventory: ReturnType<typeof useAppStore.getState>["inventory"];
 }) {
-  const collected = run?.stops.reduce((sum, stop) => sum + (stop.status === "Loaded" ? stop.quantity : 0), 0);
-  const finalQuantity = verifiedQuantity ?? collected;
+  const isVerified = ["Quality Verified", "Dispatched", "Delivered", "Settled"].includes(orderStatus);
+
+  const initialRows = allocations.map((alloc) => {
+    const stop = run?.stops.find((s) => s.farmName === alloc.farmerName);
+    const inv = inventory.find((i) => i.farmerId === alloc.farmerId);
+    const row = allocationRows.find((r) => r.farmerId === alloc.farmerId);
+    const requestedGrade = inv?.estimatedGrade ?? "A";
+    // Pre-fill with collection-center data: stop qty if available, else declared qty with small real-world variance
+    const verifiedQtyNum = stop?.quantity != null ? stop.quantity : alloc.quantity - Math.floor(alloc.quantity * 0.04);
+    const verifiedGradeVal = inv?.verifiedGrade ?? verifiedGrade ?? requestedGrade;
+    return {
+      farmer: alloc.farmerName,
+      produce: row?.produce ?? stop?.produce ?? "—",
+      declaredQty: alloc.quantity,
+      requestedGrade,
+      verifiedQty: String(verifiedQtyNum),
+      verifiedGrade: verifiedGradeVal,
+    };
+  });
+
+  const [rows, setRows] = useState(initialRows);
+
+  const setCell = (i: number, field: "verifiedQty" | "verifiedGrade", value: string) =>
+    setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <Info label="Requested" value={`${quantity} kg`} />
-      <Info label={orderStatus === "Dispatched" ? "Dispatched" : "Verified quantity"} value={finalQuantity ? `${finalQuantity} kg` : "Pending"} />
-      <Info label="Verified grade" value={verifiedGrade ? `Grade ${verifiedGrade}` : "Pending"} />
+    <div className="-mx-5 border-y border-slate-100">
+      <table className="w-full text-sm">
+        <colgroup>
+          <col />
+          <col className="w-24" />
+          <col className="w-36" />
+          <col className="w-32" />
+          <col className="w-32" />
+        </colgroup>
+        <thead className="border-b border-slate-100 bg-slate-50">
+          <tr className="h-9">
+            <th className="px-4 text-left text-xs font-medium text-slate-400">Farmer</th>
+            <th className="px-3 text-left text-xs font-medium text-slate-400">Produce</th>
+            <th className="px-3 text-left text-xs font-medium text-slate-400">Required</th>
+            <th className="px-3 text-left text-xs font-medium text-slate-400">Verified Qty</th>
+            <th className="px-4 text-left text-xs font-medium text-slate-400">Verified Grade</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="group border-b border-slate-100 last:border-0">
+              <td className="px-4 py-2.5 font-medium text-slate-950">{row.farmer}</td>
+              <td className="px-3 py-2.5 text-slate-600">{row.produce}</td>
+              <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{row.declaredQty} kg, Grade {row.requestedGrade}</td>
+              <td className="p-0">
+                <div className="flex h-11 items-center px-3">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={row.verifiedQty}
+                    onChange={(e) => setCell(i, "verifiedQty", e.target.value)}
+                    placeholder="Enter value"
+                    className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:bg-slate-50 rounded px-1"
+                  />
+                </div>
+              </td>
+              <td className="p-0">
+                <div className="flex h-11 items-center px-4">
+                  <input
+                    type="text"
+                    value={row.verifiedGrade}
+                    onChange={(e) => setCell(i, "verifiedGrade", e.target.value)}
+                    placeholder="Grade"
+                    className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:bg-slate-50 rounded px-1"
+                  />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function DeliverySummary({ orderStatus, run }: {
+// Delivery addresses for known buyers — in a real system this comes from the buyer profile
+const BUYER_COORDS: Record<string, [number, number]> = {
+  "Adam's Grocery":          [12.9716, 77.5946],
+  "FreshMart Distribution":  [13.0674, 77.5939],
+  "Garden Table Restaurant": [12.9698, 77.5986],
+  "City Basket Retail":      [12.9762, 77.5929],
+};
+
+const BUYER_ADDRESSES: Record<string, string> = {
+  "Adam's Grocery":          "14, MG Road, Downtown Market, Bangalore — 560001",
+  "FreshMart Distribution":  "North Hub Logistics Park, Hebbal, Bangalore — 560024",
+  "Garden Table Restaurant": "Riverside Promenade, Indiranagar, Bangalore — 560038",
+  "City Basket Retail":      "Central Warehouse, Yeshwanthpur, Bangalore — 560022",
+};
+
+function DeliveryMap({ orderStatus, buyer, run }: {
   orderStatus: OrderStatus;
+  buyer: string;
   run: ReturnType<typeof useAppStore.getState>["pickupRuns"][number] | undefined;
 }) {
+  const isDispatched = ["Dispatched", "Delivered"].includes(orderStatus);
+  const isDelivered = orderStatus === "Delivered";
+
+  const dispatchDate = run ? `${formatShortDate(run.date)} · ${run.eta}` : "—";
+
+  const deliveryStatus = run?.status === "Delayed" ? "Delayed" : isDelivered ? "Ahead of time" : "On-time";
+  const deliveryStatusStyle =
+    deliveryStatus === "Delayed" ? "bg-orange-50 text-orange-600" :
+    deliveryStatus === "Ahead of time" ? "bg-green-100 text-green-800" :
+    "bg-green-50 text-green-600";
+
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <Info label="Delivery status" value={orderStatus === "Delivered" ? "Delivered to buyer" : "Awaiting confirmation"} />
-      <Info label="Pickup run" value={run?.id ?? "—"} />
-      <Info label="Run status" value={run?.status ?? "—"} />
+    <div className="space-y-4">
+      {/* Route headline */}
+      <div className="flex items-center">
+        <div className="shrink-0">
+          <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+            <Warehouse size={17} className="text-slate-500" />
+          </div>
+          <p className="text-sm font-semibold text-slate-950">{run?.collectionCenter ?? "Collection Centre"}</p>
+          <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
+            <span>Dispatch: {dispatchDate}</span>
+            <button type="button" className="rounded p-0.5 hover:bg-slate-100 hover:text-slate-600">
+              <Pencil size={10} />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-1 items-center gap-1 px-3">
+          <div className="h-px flex-1 bg-slate-200" />
+          <Truck size={13} className={isDispatched ? "text-leaf" : "text-slate-300"} />
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+        <div className="shrink-0">
+          <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+            <Store size={17} className="text-slate-500" />
+          </div>
+          <p className="text-sm font-semibold text-slate-950">{buyer}</p>
+          <p className="mt-0.5 text-xs text-slate-400">{isDelivered ? "Delivered ✓" : `ETA: ${dispatchDate}`}</p>
+        </div>
+      </div>
+
+      {/* Run + driver */}
+      <div className="flex justify-between border-t border-slate-100 pt-4 mt-1">
+        <Info label="Run" value={run?.id ?? "—"} />
+        <Info label="Driver" value={run?.driver ?? "—"} />
+        <Info label="Vehicle" value={run?.vehicle ?? "—"} />
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Status</p>
+          <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${deliveryStatusStyle}`}>{deliveryStatus}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -679,62 +893,199 @@ function InvoiceCard({
   order,
   invoiceAmount,
   payment,
+  allocationRows,
   onOpenInvoice,
   onReleasePayment,
 }: {
   order: ReturnType<typeof useAppStore.getState>["orders"][number];
   invoiceAmount: number;
   payment: ReturnType<typeof getPaymentMeta>;
+  allocationRows: AllocationRow[];
   onOpenInvoice: () => void;
   onReleasePayment: () => void;
 }) {
-  const invoiceSent = order.invoiceStatus === "Generated";
-  const paid = order.paymentStatus === "Received" || order.paymentStatus === "Released";
+  const isDelivered = ["Delivered", "Settled"].includes(order.status) || order.paymentStatus === "Released";
   const settled = order.status === "Settled" || order.paymentStatus === "Released";
 
+  const deliveryStatusLabel = settled ? "Settled" : isDelivered ? "Delivered" : order.status === "Dispatched" ? "In Transit" : "Pending";
+  const deliveryStatusStyle = settled
+    ? "bg-green-100 text-green-800"
+    : isDelivered
+      ? "bg-green-50 text-green-600"
+      : "bg-slate-100 text-slate-500";
+
+  const totalQty = allocationRows.reduce((s, r) => s + r.allocated, 0);
+  const ratePerKg = totalQty > 0 ? invoiceAmount / totalQty : 0;
+  const logisticsPerRow = allocationRows.length > 0 ? payment.logisticsCharge / allocationRows.length : 0;
+  const farmerRows = allocationRows.map((r) => {
+    const gross = r.allocated * ratePerKg;
+    const coopFee = gross * 0.08;
+    const net = Math.max(gross - coopFee - logisticsPerRow, 0);
+    return { farmer: r.farmerName, produce: r.produce, qty: r.allocated, gross, coopFee, logistics: logisticsPerRow, net };
+  });
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const buyerPaymentStatus = order.paymentStatus === "Received" || order.paymentStatus === "Released" ? "Received" : "Awaiting";
+  const totalCoopFee = farmerRows.reduce((s, r) => s + r.coopFee, 0);
+  const totalLogistics = farmerRows.reduce((s, r) => s + r.logistics, 0);
+  const totalNet = farmerRows.reduce((s, r) => s + r.net, 0);
+
   return (
-    <div className="space-y-4">
-      {/* Invoice card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Invoice to buyer</p>
-            <p className="mt-1 text-base font-semibold text-slate-950">{order.buyer}</p>
-            <p className="mt-0.5 text-sm text-slate-500">{formatCurrency(invoiceAmount)} · {order.id}</p>
+    <>
+      <div className="space-y-4">
+        {/* Row 1: Buyer Payment · Order Value · Farmer Payout · Invoice */}
+        <div className="grid grid-cols-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Buyer Payment</p>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${buyerPaymentStatus === "Received" ? "bg-green-500" : "bg-amber-400"}`} />
+              <p className="text-sm text-slate-900">{buyerPaymentStatus}</p>
+            </div>
           </div>
-          <div className="shrink-0">
-            {settled ? (
-              <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-                <CheckCircle2 size={12} /> Settled
-              </span>
-            ) : invoiceSent ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                <FileText size={12} /> Invoice sent
-              </span>
-            ) : (
-              <button className="btn-primary py-1.5 text-xs" onClick={onOpenInvoice}>
-                <FileText size={13} /> Send Invoice
-              </button>
-            )}
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Order Value</p>
+            <p className="mt-1 text-sm text-slate-900">{formatCurrency(invoiceAmount)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Farmer Payout</p>
+            <p className="mt-1 text-sm text-slate-900">{farmerRows.length} farmers</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Invoice</p>
+            <button type="button" onClick={onOpenInvoice} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
+              <FileText size={12} /> INV-{order.id}
+            </button>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
-          <Info label="Buyer payment" value={payment.buyerPayment} />
-          <Info label="Est. farmer payout" value={formatCurrency(payment.estimatedFarmerPayout)} />
-          <Info label="Deductions" value={`${formatCurrency(payment.coopFee)} fee + ${formatCurrency(payment.logisticsCharge)} logistics`} />
+
+        {/* Row 2: Net Payout · Coop Fee · Logistics · Payment Details */}
+        <div className="grid grid-cols-4 border-t border-slate-100 pt-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Net Payout</p>
+            <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalNet)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Coop Fee</p>
+            <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalCoopFee)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Logistics</p>
+            <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalLogistics)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Payment Details</p>
+            <button type="button" onClick={() => setDetailsOpen(true)} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
+              <FileText size={12} /> View breakdown
+            </button>
+          </div>
         </div>
+
+        {settled && (
+          <p className="flex items-center gap-1.5 text-sm text-green-600">
+            <CheckCircle2 size={14} /> Payment released to all farmers.
+          </p>
+        )}
       </div>
 
-      {/* Release payment */}
-      {invoiceSent && !settled && (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4">
+      <ReleasePaymentModal
+        open={detailsOpen}
+        allocationRows={allocationRows}
+        payment={payment}
+        invoiceAmount={invoiceAmount}
+        onConfirm={() => { onReleasePayment(); setDetailsOpen(false); }}
+        onClose={() => setDetailsOpen(false)}
+      />
+    </>
+  );
+}
+
+function ReleasePaymentModal({
+  open,
+  allocationRows,
+  payment,
+  invoiceAmount,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean;
+  allocationRows: AllocationRow[];
+  payment: ReturnType<typeof getPaymentMeta>;
+  invoiceAmount: number;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  const totalQty = allocationRows.reduce((s, r) => s + r.allocated, 0);
+  const ratePerKg = totalQty > 0 ? invoiceAmount / totalQty : 0;
+  const coopFeeRate = 0.08;
+  const logisticsPerRow = allocationRows.length > 0 ? payment.logisticsCharge / allocationRows.length : 0;
+
+  const rows = allocationRows.map((r) => {
+    const gross = r.allocated * ratePerKg;
+    const coopFee = gross * coopFeeRate;
+    const logistics = logisticsPerRow;
+    const net = Math.max(gross - coopFee - logistics, 0);
+    return { farmer: r.farmerName, produce: r.produce, qty: r.allocated, gross, coopFee, logistics, net };
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
-            <p className="text-sm font-semibold text-slate-950">Release farmer payment</p>
-            <p className="mt-0.5 text-xs text-slate-500">Once buyer payment is confirmed, release {formatCurrency(payment.estimatedFarmerPayout)} to farmers.</p>
+            <p className="text-sm font-semibold text-slate-950">Payment Details</p>
+            <p className="mt-0.5 text-xs text-slate-400">Review each farmer's deductions and approve to release payment.</p>
           </div>
-          <button className="btn-primary shrink-0" onClick={onReleasePayment}>Release Payment</button>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
         </div>
-      )}
+
+        <div className="px-6 py-5">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
+                <th className="pb-2.5 font-medium">Farmer</th>
+                <th className="pb-2.5 font-medium">Produce</th>
+                <th className="pb-2.5 text-right font-medium">Qty</th>
+                <th className="pb-2.5 text-right font-medium">Gross</th>
+                <th className="pb-2.5 text-right font-medium">Coop Fee</th>
+                <th className="pb-2.5 text-right font-medium">Logistics</th>
+                <th className="pb-2.5 text-right font-medium">Net Payout</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <tr key={r.farmer}>
+                  <td className="py-2.5 font-medium text-slate-900">{r.farmer}</td>
+                  <td className="py-2.5 text-slate-500">{r.produce}</td>
+                  <td className="py-2.5 text-right text-slate-500">{r.qty} kg</td>
+                  <td className="py-2.5 text-right text-slate-500">{formatCurrency(r.gross)}</td>
+                  <td className="py-2.5 text-right text-slate-500">−{formatCurrency(r.coopFee)}</td>
+                  <td className="py-2.5 text-right text-slate-500">−{formatCurrency(r.logistics)}</td>
+                  <td className="py-2.5 text-right font-semibold text-slate-950">{formatCurrency(r.net)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50 text-xs font-medium">
+                <td className="py-2.5 pl-0 text-slate-500">Total</td>
+                <td />
+                <td className="py-2.5 text-right text-slate-600">{rows.reduce((s, r) => s + r.qty, 0)} kg</td>
+                <td className="py-2.5 text-right text-slate-600">{formatCurrency(rows.reduce((s, r) => s + r.gross, 0))}</td>
+                <td className="py-2.5 text-right text-slate-600">−{formatCurrency(rows.reduce((s, r) => s + r.coopFee, 0))}</td>
+                <td className="py-2.5 text-right text-slate-600">−{formatCurrency(rows.reduce((s, r) => s + r.logistics, 0))}</td>
+                <td className="py-2.5 text-right font-semibold text-leaf">{formatCurrency(rows.reduce((s, r) => s + r.net, 0))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-primary" onClick={onConfirm}>Release Payment</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -872,7 +1223,8 @@ function StatusLabel({ status, invoiceStatus, paymentStatus }: { status: OrderSt
 
 function getActiveStep(status: OrderStatus, _invoiceStatus: string, paymentStatus: string): Step {
   if (status === "Settled" || paymentStatus === "Released" || status === "Delivered") return "Settlement";
-  if (status === "Dispatched" || status === "Quality Verified" || status === "Collected") return "Delivery";
+  if (status === "Dispatched" || status === "Quality Verified") return "Dispatch";
+  if (status === "Collected") return "Verification";
   if (status === "Pickup Scheduled") return "Pickup";
   if (status === "Allocated") return "Confirmation";
   return "Allocation";
