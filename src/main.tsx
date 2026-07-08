@@ -17,6 +17,8 @@ import FarmerPickups from "./pages/farmer/FarmerPickups";
 import InventoryUpdate from "./pages/farmer/InventoryUpdate";
 import MyInventory from "./pages/farmer/MyInventory";
 import Finance from "./pages/manager/Finance";
+import FinanceInvoices from "./pages/manager/FinanceInvoices";
+import FinancePayouts from "./pages/manager/FinancePayouts";
 import Inventory from "./pages/manager/Inventory";
 import Logistics from "./pages/manager/Logistics";
 import PickupRunDetail from "./pages/manager/PickupRunDetail";
@@ -42,6 +44,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="manager/pickup-runs" element={<Logistics />} />
           <Route path="manager/pickup-runs/:runId" element={<PickupRunDetail />} />
           <Route path="manager/finance" element={<Finance />} />
+          <Route path="manager/finance/invoices" element={<FinanceInvoices />} />
+          <Route path="manager/finance/payouts" element={<FinancePayouts />} />
           <Route path="manager/farmers" element={<Farmers />} />
           <Route path="manager/buyers" element={<Buyers />} />
           <Route path="buyer/dashboard" element={<BuyerDashboard />} />

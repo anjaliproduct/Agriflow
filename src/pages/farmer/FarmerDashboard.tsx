@@ -130,77 +130,76 @@ export default function FarmerDashboard() {
     ...mockExtra,
   ];
 
-  return (
-    <div className="-m-4 sm:-m-6 min-h-full p-4 sm:p-6" style={{ backgroundColor: brand.pageBg }}>
-      <div className="space-y-4 sm:space-y-5">
+  const cardShadow = { boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)" };
 
-        {/* Header */}
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const keyHighlight = nextRun
+    ? `Your next pickup is ${formatDate(nextRun.date)} at ${nextStop?.readyTime ?? nextRun.eta}.`
+    : pendingConfirmations > 0
+      ? `You have ${pendingConfirmations} order${pendingConfirmations > 1 ? "s" : ""} awaiting your confirmation.`
+      : releasedPayout > 0
+        ? `${formatCurrency(releasedPayout)} has been sent to your account.`
+        : `All caught up — no actions needed today.`;
+
+  return (
+    <div className="-m-4 sm:-m-6 min-h-full p-4 sm:p-6" style={{ backgroundColor: "#F7F7F7" }}>
+      <div className="space-y-5">
+
+        {/* Airbnb-style welcome header */}
         <div>
-          <h1 className="text-lg sm:text-xl font-bold" style={{ color: brand.forestGreen }}>{FARMER_NAME}</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
-            East Ridge · <span style={{ color: brand.limeGreen }} className="font-medium">96% on-time reliability</span> · as of {today}
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{today}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-slate-900">{greeting}, {FARMER_NAME.split(" ")[0]} 👋</h1>
+          <p className="mt-1 text-sm text-slate-500">{keyHighlight}</p>
         </div>
 
         {/* Layer 1 — Metric cards */}
-        <div className="rounded-[20px] p-[10px]" style={{ backgroundColor: "#F2FFEF" }}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {metrics.map(({ icon: Icon, iconBg, iconColor, label, value, sub, to }) => (
-              <Link
-                key={label}
-                to={to}
-                className="rounded-xl px-4 py-3.5 sm:px-5 sm:py-4 transition-all hover:opacity-90"
-                style={{ backgroundColor: "#ffffff" }}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {metrics.map(({ icon: Icon, iconBg, iconColor, label, value, sub, to }) => (
+            <Link
+              key={label}
+              to={to}
+              className="rounded-2xl bg-white px-5 py-5 transition-all hover:opacity-90"
+              style={cardShadow}
+            >
+              <span
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full mb-3"
+                style={{ backgroundColor: iconBg, color: iconColor }}
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                    style={{ backgroundColor: iconBg, color: iconColor }}
-                  >
-                    <Icon size={14} />
-                  </span>
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: brand.forestGreen }}>{value}</span>
-                </div>
-                <p className="mt-2 text-xs sm:text-sm font-semibold text-slate-700">{label}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
-              </Link>
-            ))}
-          </div>
+                <Icon size={14} />
+              </span>
+              <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+              <p className="mt-1.5 text-sm font-semibold text-slate-700">{label}</p>
+              <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
+            </Link>
+          ))}
         </div>
 
         {/* Layer 2 — Actions + Upcoming Pickups */}
-        <div className="rounded-[20px] p-[10px]" style={{ backgroundColor: "#F2FFEF" }}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
             {/* Actions */}
-            <div className="flex flex-col rounded-xl p-3 space-y-2" style={{ backgroundColor: "#ffffff" }}>
-              <div className="self-start flex items-center gap-2 px-1 py-1">
-                <span className="flex items-center justify-center rounded-md p-2" style={{ backgroundColor: `${brand.limeGreen}18` }}>
-                  <AlertCircle size={16} style={{ color: brand.forestGreen }} />
-                </span>
-                <p className="text-sm font-semibold" style={{ color: brand.forestGreen }}>Actions</p>
+            <div className="flex flex-col rounded-2xl bg-white p-5 space-y-3" style={cardShadow}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-900">Actions</p>
+                <AlertCircle size={15} className="text-slate-400" />
               </div>
               <div className="flex-1 space-y-2">
                 {nudges.length === 0 ? (
-                  <div className="rounded-[12px] bg-white px-5 py-8 text-center text-sm text-slate-400">All caught up — no actions needed.</div>
+                  <p className="py-6 text-center text-sm text-slate-400">All caught up — no actions needed.</p>
                 ) : (
                   nudges.map((n, i) => {
                     const Icon = n.icon;
                     return (
-                      <div key={i} className="flex items-center gap-3 rounded-[12px] bg-white px-3 sm:px-4 py-3 sm:py-3.5">
-                        <span
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                          style={{ backgroundColor: n.iconBg, color: n.iconColor }}
-                        >
-                          <Icon size={16} />
-                        </span>
+                      <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-100 px-4 py-3">
+                        <Icon size={16} className="shrink-0 text-slate-400" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-900">{n.title}</p>
                           <p className="mt-0.5 text-xs text-slate-400 leading-snug line-clamp-2">{n.description}</p>
                         </div>
                         <Link
                           to={n.href}
-                          className="shrink-0 w-16 rounded-md border border-slate-200 bg-white py-1 text-center text-xs font-medium text-slate-600 hover:bg-slate-50"
+                          className="shrink-0 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
                         >
                           {n.actionLabel}
                         </Link>
@@ -212,17 +211,15 @@ export default function FarmerDashboard() {
             </div>
 
             {/* Upcoming Pickups */}
-            <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: "#ffffff" }}>
-              <div className="flex items-center gap-2 px-1 py-1">
-                <span className="flex items-center justify-center rounded-md p-2" style={{ backgroundColor: `${brand.limeGreen}18` }}>
-                  <Truck size={16} style={{ color: brand.forestGreen }} />
-                </span>
-                <p className="text-sm font-semibold" style={{ color: brand.forestGreen }}>Upcoming Pickups</p>
+            <div className="rounded-2xl bg-white p-5 space-y-3" style={cardShadow}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-900">Upcoming Pickups</p>
+                <Truck size={15} className="text-slate-400" />
               </div>
               {myRuns.length === 0 ? (
-                <div className="rounded-[12px] bg-white px-4 py-6 text-center text-sm text-slate-400">No pickups scheduled.</div>
+                <p className="py-6 text-center text-sm text-slate-400">No pickups scheduled.</p>
               ) : (
-                <div className="rounded-[12px] bg-white overflow-hidden divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100">
                   {myRuns.slice(0, 3).map((run) => {
                     const stop = run.stops.find((s) => s.farmName === FARMER_NAME);
                     if (!stop) return null;
@@ -231,25 +228,20 @@ export default function FarmerDashboard() {
                     const grade = invItem?.estimatedGrade ?? "A";
                     const price = formatCurrency(stop.quantity * 2.4 * 0.92);
                     return (
-                      <div key={run.id} className="flex items-center gap-3 px-3 sm:px-4 py-3.5 sm:py-4">
+                      <div key={run.id} className="flex items-center gap-3 py-3.5">
                         <div
-                          className="flex w-14 sm:w-16 self-stretch shrink-0 items-center justify-center rounded-xl text-2xl sm:text-3xl"
+                          className="flex w-12 h-12 shrink-0 items-center justify-center rounded-xl text-2xl"
                           style={{ backgroundColor: brand.cream }}
                         >
                           {emoji}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm sm:text-base font-bold" style={{ color: brand.forestGreen }}>{stop.produce}</p>
-                          <p className="mt-0.5 text-xs sm:text-sm text-slate-500">Estimated {price}</p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
-                            <span>{stop.quantity} kg</span>
-                            <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
-                            <span>Grade {grade}</span>
-                          </div>
+                          <p className="text-sm font-semibold text-slate-900">{stop.produce}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">Estimated {price} · {stop.quantity} kg · Grade {grade}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800">{formatDate(run.date)}</p>
-                          <p className="mt-0.5 text-xs sm:text-sm text-slate-500">{stop.readyTime}</p>
+                          <p className="text-sm font-semibold text-slate-900">{formatDate(run.date)}</p>
+                          <p className="mt-0.5 text-xs text-slate-400">{stop.readyTime}</p>
                         </div>
                       </div>
                     );
@@ -258,28 +250,21 @@ export default function FarmerDashboard() {
               )}
             </div>
           </div>
-        </div>
 
         {/* Layer 3 — Inventory */}
-        <div className="rounded-[20px] p-[10px]" style={{ backgroundColor: "#F2FFEF" }}>
-          <div className="overflow-hidden rounded-[12px]" style={{ backgroundColor: "#ffffff" }}>
+        <div className="rounded-2xl bg-white overflow-hidden" style={cardShadow}>
 
             {/* Heading row */}
-            <div className="flex items-center justify-between p-3">
-              <div className="inline-flex items-center gap-2">
-                <span className="flex items-center justify-center rounded-md p-2" style={{ backgroundColor: `${brand.limeGreen}18` }}>
-                  <Package size={16} style={{ color: brand.forestGreen }} />
-                </span>
-                <p className="text-sm font-semibold" style={{ color: brand.forestGreen }}>Crop Inventory</p>
-              </div>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4">
+              <p className="text-sm font-semibold text-slate-900">Crop Inventory</p>
               <div className="flex items-center gap-2">
-                <button className="hidden sm:flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
+                <button className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
                   <SlidersHorizontal size={13} /> Filter
                 </button>
                 <Link
                   to="/farmer/inventory/update"
                   state={{ from: "/farmer/dashboard" }}
-                  className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-medium text-white transition-colors"
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
                   style={{ backgroundColor: brand.forestGreen }}
                 >
                   <Package size={13} /> Update Inventory
@@ -376,14 +361,13 @@ export default function FarmerDashboard() {
                   })}
                 </tbody>
               </table>
-              <div className="flex items-center justify-between px-5 py-3 bg-white" style={{ borderTop: "1px solid #e2e8f0" }}>
+              <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100">
                 <p className="text-xs text-slate-400">Reserved quantity is held against active orders</p>
                 <p className="text-xs text-slate-400">Showing {inventory.length + 5} crops</p>
               </div>
             </div>
 
           </div>
-        </div>
 
       </div>
     </div>

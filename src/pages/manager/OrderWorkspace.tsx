@@ -1,7 +1,7 @@
-import { AlertCircle, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, GripVertical, Leaf, MapPin, Milestone, MoreHorizontal, Pencil, Plus, Scale, SlidersHorizontal, Sparkles, Sprout, Star, Store, Truck, Wallet, Warehouse } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronRight, Clock, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Scale, ShoppingBag, Sparkles, Sprout, Store, Truck, User, Wallet, Warehouse } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Navigate, useParams } from "react-router";
 import { Link } from "react-router-dom";
 import StatusBadge from "../../components/StatusBadge";
@@ -19,28 +19,43 @@ export default function OrderWorkspace() {
   const order = orders.find((entry) => entry.id === orderId);
 
   const activeStep = order ? getActiveStep(order.status, order.invoiceStatus, order.paymentStatus) : "Allocation";
-  const [expandedStep, setExpandedStep] = useState<Step | null>(activeStep);
   const [pickupBlocked, setPickupBlocked] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [confirmationRevealed, setConfirmationRevealed] = useState(false);
 
-  const stepRefs = useRef<Partial<Record<Step, HTMLDivElement | null>>>({});
-  const scrollOnNextExpand = useRef(false);
+  function activeStepToWizard(s: Step): number {
+    if (s === "Allocation" || s === "Confirmation") return 0;
+    if (s === "Pickup") return 1;
+    if (s === "Verification") return 2;
+    if (s === "Dispatch") return 3;
+    return 4;
+  }
+
+  const [wizardStep, setWizardStep] = useState(() => activeStepToWizard(activeStep));
+  const [allocationSubStep, setAllocationSubStep] = useState<0 | 1>(
+    activeStep === "Confirmation" ? 1 : 0
+  );
 
   useEffect(() => {
     if (order) {
-      scrollOnNextExpand.current = true;
-      setExpandedStep(getActiveStep(order.status, order.invoiceStatus, order.paymentStatus));
+      const s = getActiveStep(order.status, order.invoiceStatus, order.paymentStatus);
+      const mapped = activeStepToWizard(s);
+      setWizardStep((current) => Math.max(current, mapped));
+      setAllocationSubStep(s === "Confirmation" ? 1 : 0);
     }
   }, [order?.status, order?.invoiceStatus, order?.paymentStatus]);
 
   useEffect(() => {
-    if (!scrollOnNextExpand.current || !expandedStep) return;
-    scrollOnNextExpand.current = false;
-    const el = stepRefs.current[expandedStep];
-    if (el) {
-      setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    if (allocationSubStep === 1) {
+      setConfirmationRevealed(false);
+      const t = setTimeout(() => setConfirmationRevealed(true), 2500);
+      return () => clearTimeout(t);
     }
-  }, [expandedStep]);
+  }, [allocationSubStep]);
+
+  const WIZARD_STEPS = ["Allocation & Confirmation", "Schedule Pickup", "Verification", "Dispatch", "Settlement"] as const;
+  const activeWizardStep = activeStepToWizard(activeStep);
 
   if (!order) return <Navigate to="/manager/orders" replace />;
 
@@ -77,9 +92,7 @@ export default function OrderWorkspace() {
   const stepFooters: Partial<Record<Step, React.ReactNode>> = {
     Allocation: (order.status === "New" || order.status === "Under Review") ? (
       <button className="btn-primary" onClick={do_.confirmAllocation}><CheckCircle2 size={15} /> Confirm Allocation</button>
-    ) : (
-      <button className="btn-secondary" onClick={do_.confirmAllocation}>Re-allocate</button>
-    ),
+    ) : null,
     Confirmation: order.status === "Allocated" ? (
       <button
         className="btn-primary"
@@ -134,178 +147,287 @@ export default function OrderWorkspace() {
     ),
   };
 
-  const toggleStep = (step: Step) => setExpandedStep(expandedStep === step ? null : step);
-
   return (
-    <div className="-m-6 flex h-[calc(100vh)] flex-col overflow-hidden bg-white">
+    <div className="-m-6 flex h-[100dvh] flex-col overflow-hidden bg-white">
+
+      {/* Header */}
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex h-11 items-center gap-2 px-4">
-          {/* Brand mark */}
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-leaf">
-            <Leaf size={11} className="text-white" />
-          </span>
-
-          {/* Breadcrumb */}
           <nav className="flex min-w-0 flex-1 items-center gap-1 text-sm text-slate-500">
             <Link className="shrink-0 hover:text-slate-900" to="/manager/orders">Orders</Link>
             <ChevronRight size={13} className="shrink-0 text-slate-300" />
             <span className="shrink-0 text-slate-500">{order.id}</span>
           </nav>
-
-          {/* Actions */}
-          <div className="flex shrink-0 items-center gap-1">
-            <button type="button" className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700">
-              <Star size={14} />
-            </button>
-            <button type="button" className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700">
-              <MoreHorizontal size={14} />
-            </button>
-            <div className="mx-2 h-4 w-px bg-slate-200" />
-            <span className="text-xs text-slate-400">{orderIndex + 1} / {orders.length}</span>
-            <Link
-              to={prevOrder ? `/manager/orders/${prevOrder.id}` : "#"}
-              className={`flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 ${!prevOrder ? "pointer-events-none opacity-30" : "text-slate-500 hover:text-slate-900"}`}
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setChatOpen((o) => !o)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+              style={chatOpen
+                ? { backgroundColor: "#095F25", color: "#ffffff" }
+                : { backgroundColor: "#f1f5f9", color: "#475569" }
+              }
+              aria-label="Toggle order chat"
             >
+              <MessageCircle size={15} />
+            </button>
+            <div className="mx-1 h-4 w-px bg-slate-200" />
+            <span className="text-xs text-slate-400">{orderIndex + 1} / {orders.length}</span>
+            <Link to={prevOrder ? `/manager/orders/${prevOrder.id}` : "#"} className={`flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 ${!prevOrder ? "pointer-events-none opacity-30" : "text-slate-500 hover:text-slate-900"}`}>
               <ChevronRight size={14} className="rotate-90" />
             </Link>
-            <Link
-              to={nextOrder ? `/manager/orders/${nextOrder.id}` : "#"}
-              className={`flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 ${!nextOrder ? "pointer-events-none opacity-30" : "text-slate-500 hover:text-slate-900"}`}
-            >
+            <Link to={nextOrder ? `/manager/orders/${nextOrder.id}` : "#"} className={`flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 ${!nextOrder ? "pointer-events-none opacity-30" : "text-slate-500 hover:text-slate-900"}`}>
               <ChevronRight size={14} className="-rotate-90" />
             </Link>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[860px] space-y-4 px-6 py-5">
+      {/* Main — centred, vertically padded */}
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden items-stretch justify-center px-6 py-6">
+        <div className="flex w-full max-w-[860px] flex-col">
 
-          {/* Page title */}
-          <div>
-            <h1 className="text-2xl font-bold text-slate-950">{order.buyer}</h1>
-            <p className="mt-1 text-sm text-slate-400">Delivery by {formatDate(order.deliveryDate)} · {order.id}</p>
+          {/* Order title */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950">{order.buyer}</h1>
+            <p className="mt-0.5 text-sm text-slate-400">{formatCurrency(invoiceAmount)} · Delivery by {formatDate(order.deliveryDate)}</p>
           </div>
 
-          {/* Global metrics */}
-          <div className="rounded-xl bg-white px-5 py-4">
-            <div className="flex items-stretch divide-x divide-slate-100">
-              <Metric icon={Sprout} iconBg="bg-green-50 text-green-600" label="Items" value={itemNames} />
-              <Metric icon={Scale} iconBg="bg-blue-50 text-blue-600" label="Quantity" value={`${totalOrderQuantity} kg`} />
-              <Metric icon={Wallet} iconBg="bg-amber-50 text-amber-600" label="Order value" value={formatCurrency(invoiceAmount)} />
-              <Metric icon={Milestone} iconBg="bg-violet-50 text-violet-600" label="Progress" value={`${Math.round(((activeStepIndex + 1) / steps.length) * 100)}%`} />
-              <Metric
-                icon={daysToDelivery <= 1 ? Clock : MapPin}
-                iconBg={daysToDelivery <= 1 ? "bg-red-50 text-red-500" : daysToDelivery <= 3 ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-500"}
-                label="Dispatch"
-                value={daysToDelivery > 0 ? `in ${daysToDelivery}d` : daysToDelivery === 0 ? "Today" : "Overdue"}
-                tone={daysToDelivery <= 1 ? "warn" : daysToDelivery <= 3 ? "caution" : "normal"}
-              />
-            </div>
-          </div>
+          {/* Wizard card */}
+          <div
+            className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white"
+            style={{ boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" }}
+          >
 
-          {/* Accordion — separate cards */}
-          <div className="space-y-2">
-            {steps.map((step, index) => {
-              const state: "done" | "active" | "upcoming" =
-                index < activeStepIndex ? "done" : index === activeStepIndex ? "active" : "upcoming";
-              const isExpanded = expandedStep === step;
+            {/* Step content — scrollable */}
+            <div className="flex-1 overflow-y-auto px-8 py-8">
 
-              return (
-                <AccordionItem
-                  key={step}
-                  index={index}
-                  step={step}
-                  state={state}
-                  expanded={isExpanded}
-                  onToggle={() => toggleStep(step)}
-                  footer={stepFooters[step]}
-                  cardRef={(el) => { stepRefs.current[step] = el; }}
-                >
-                  {step === "Allocation" ? (
-                    <AllocationPanel
-                      rows={allocationRows}
-                      totalSuggested={totalSuggested}
-                      requiredQuantity={totalOrderQuantity}
-                    />
-                  ) : null}
+              {/* Step heading */}
+              <p className="mb-5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Stage {wizardStep + 1} of {WIZARD_STEPS.length}
+              </p>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-slate-950">
+                  {wizardStep === 0
+                    ? (allocationSubStep === 0 ? "Allocation" : "Farmer Confirmation")
+                    : WIZARD_STEPS[wizardStep]}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {wizardStep === 0 && allocationSubStep === 0 && "Review and approve the suggested farmer allocation for this order. Adjust quantities as needed before confirming."}
+                  {wizardStep === 0 && allocationSubStep === 1 && "Waiting on farmers to confirm their supply commitment. Accept the order once all confirmations are in."}
+                  {wizardStep === 1 && "Coordinate the farm collection route and assign a driver and vehicle for the pickup run."}
+                  {wizardStep === 2 && "Verify the quantity and grade of produce collected at the collection centre against declared amounts."}
+                  {wizardStep === 3 && "Dispatch the order to the buyer and track delivery progress to the destination."}
+                  {wizardStep === 4 && "Generate the buyer invoice, confirm payment receipt, and release payouts to farmers."}
+                </p>
+              </div>
 
-                  {step === "Confirmation" ? (
-                    <div className="space-y-3">
-                      {pickupBlocked && pendingFarmers.length > 0 ? (
-                        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                          <AlertCircle size={14} className="shrink-0 text-amber-500" />
-                          <span>{pendingFarmers.length} of {suggested.length} farmer{suggested.length !== 1 ? "s" : ""} yet to confirm — pickup cannot be scheduled until all respond.</span>
-                        </div>
-                      ) : null}
-                      <ConfirmationTable allocations={suggested} confirmed={order.status !== "Allocated"} />
-                    </div>
-                  ) : null}
+              {/* Step 0: Allocation & Confirmation (two sub-steps) */}
+              {wizardStep === 0 && (
+                <div className="space-y-6">
+                  {/* Sub-step 0a: Allocation */}
+                  {allocationSubStep === 0 && (
+                    <>
+                      <AllocationPanel rows={allocationRows} totalSuggested={totalSuggested} requiredQuantity={totalOrderQuantity} />
+                      <AllocationRecommendationToggle />
+                    </>
+                  )}
 
-                  {step === "Pickup" ? (
-                    <div>
-                      <div className="flex items-start justify-between gap-3">
-                        <SectionTitle title="Coordinate pickup" description="Track the pickup run and farm collection route." />
-                        <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
-                          <Sparkles size={11} /> Auto-scheduled — confirm or adjust
-                        </span>
-                      </div>
-                      {pickupRun ? (
-                        <div className="mt-4 space-y-4">
-                          <RouteMap
-                            stops={pickupRun.stops.map((s) => ({ farmName: s.farmName, time: s.readyTime, status: s.status, produce: s.produce, quantity: s.quantity }))}
-                            collectionCenter={pickupRun.collectionCenter}
-                            eta={pickupRun.eta}
-                            height={300}
-                          />
-                          <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
-                            <PickupRunReference run={pickupRun} />
-                            <div className="min-w-[200px]">
-                              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Route order</p>
-                              <VerticalRouteTimeline run={pickupRun} />
+                  {/* Sub-step 0b: Awaiting Confirmation */}
+                  {allocationSubStep === 1 && (
+                    <>
+                      <div className="w-full divide-y divide-slate-100">
+                        {suggested.map((alloc, idx) => {
+                          const confirmed = confirmationRevealed;
+                          return (
+                            <div key={alloc.farmerId} className="flex items-center justify-between py-5">
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center bg-slate-100 text-xs font-semibold text-slate-600"
+                                  style={{ borderRadius: 8 }}
+                                >
+                                  {alloc.farmerName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                                </span>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-900">{alloc.farmerName}</p>
+                                  <p className="text-xs text-slate-400">{alloc.quantity} kg · {alloc.produce ?? order.produce}</p>
+                                </div>
+                              </div>
+                              {confirmed ? (
+                                <span className="inline-flex w-24 items-center justify-center gap-1.5 rounded-full border border-green-300 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Confirmed
+                                </span>
+                              ) : (
+                                <span className="inline-flex w-24 items-center justify-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Pending
+                                </span>
+                              )}
                             </div>
-                          </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Step 1: Schedule Pickup */}
+              {wizardStep === 1 && (
+                <div>
+                  {pickupRun ? (
+                    <div className="mt-4 space-y-4">
+                      <RouteMap
+                        stops={pickupRun.stops.map((s) => ({ farmName: s.farmName, time: s.readyTime, status: s.status, produce: s.produce, quantity: s.quantity }))}
+                        collectionCenter={pickupRun.collectionCenter}
+                        eta={pickupRun.eta}
+                        height={260}
+                      />
+                      <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
+                        <PickupRunReference run={pickupRun} />
+                        <div className="min-w-[200px]">
+                          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Route order</p>
+                          <VerticalRouteTimeline run={pickupRun} />
                         </div>
-                      ) : (
-                        <div className="mt-4"><PickupRunReference run={undefined} /></div>
-                      )}
-                    </div>
-                  ) : null}
-
-                  {step === "Verification" ? (
-                    <div>
-                      <SectionTitle title="Collection verification" description="Declared vs collected at the collection centre." />
-                      <div className="mt-3">
-                        <VerificationSummary key={order.id} orderStatus={order.status} quantity={order.quantity} verifiedQuantity={order.verifiedQuantity} verifiedGrade={order.verifiedGrade} run={pickupRun} allocations={suggested} allocationRows={allocationRows} inventory={inventory} />
                       </div>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="mt-4"><PickupRunReference run={undefined} /></div>
+                  )}
+                </div>
+              )}
 
-                  {step === "Dispatch" ? (
-                    <div>
-                      <SectionTitle title="Delivery Address" description={BUYER_ADDRESSES[order.buyer] ?? order.buyer} />
-                      <div className="mt-5">
-                        <DeliveryMap orderStatus={order.status} buyer={order.buyer} run={pickupRun} />
-                      </div>
-                    </div>
-                  ) : null}
+              {/* Step 2: Verification */}
+              {wizardStep === 2 && (
+                <div>
+                  <div>
+                    <VerificationSummary key={order.id} orderStatus={order.status} quantity={order.quantity} verifiedQuantity={order.verifiedQuantity} verifiedGrade={order.verifiedGrade} run={pickupRun} allocations={suggested} allocationRows={allocationRows} inventory={inventory} />
+                  </div>
+                </div>
+              )}
 
-                  {step === "Settlement" ? (
-                    <InvoiceCard
-                      order={order}
-                      invoiceAmount={invoiceAmount}
-                      payment={payment}
-                      allocationRows={allocationRows}
-                      onOpenInvoice={() => setInvoiceModalOpen(true)}
-                      onReleasePayment={do_.releasePayment}
+              {/* Step 3: Dispatch */}
+              {wizardStep === 3 && (
+                <div>
+                  <SectionTitle title="Delivery address" description={BUYER_ADDRESSES[order.buyer] ?? order.buyer} />
+                  <div className="mt-5">
+                    <DeliveryMap orderStatus={order.status} buyer={order.buyer} run={pickupRun} />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Settlement */}
+              {wizardStep === 4 && (
+                <InvoiceCard
+                  order={order}
+                  invoiceAmount={invoiceAmount}
+                  payment={payment}
+                  allocationRows={allocationRows}
+                  onOpenInvoice={() => setInvoiceModalOpen(true)}
+                  onReleasePayment={do_.releasePayment}
+                />
+              )}
+
+            </div>
+
+            {/* Bottom — progress bars + nav */}
+            <div className="shrink-0 border-t border-slate-100 px-8 pb-6 pt-4">
+
+              {/* Progress bars */}
+              <div className="mb-5 flex gap-2">
+                {WIZARD_STEPS.map((_, i) => {
+                  let bg: string;
+                  if (i < wizardStep) {
+                    bg = "#1a1a1a";
+                  } else if (i === wizardStep && i === 0) {
+                    bg = allocationSubStep === 0
+                      ? "linear-gradient(to right, #1a1a1a 50%, #e2e8f0 50%)"
+                      : "#1a1a1a";
+                  } else if (i === wizardStep) {
+                    bg = "#1a1a1a";
+                  } else {
+                    bg = "#e2e8f0";
+                  }
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => { setWizardStep(i); if (i === 0) setAllocationSubStep(0); }}
+                      className="h-1 flex-1 rounded-full transition-all"
+                      style={{ background: bg }}
+                      aria-label={WIZARD_STEPS[i]}
                     />
-                  ) : null}
-                </AccordionItem>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
 
+              {/* Navigation */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wizardStep === 0 && allocationSubStep === 1) {
+                      setAllocationSubStep(0);
+                    } else {
+                      if (wizardStep === 1) setAllocationSubStep(1);
+                      setWizardStep((s) => Math.max(0, s - 1));
+                    }
+                  }}
+                  disabled={wizardStep === 0 && allocationSubStep === 0}
+                  className="text-sm font-semibold text-slate-700 underline hover:text-slate-900 disabled:opacity-30 disabled:no-underline"
+                >
+                  Back
+                </button>
+                {(() => {
+                  const advance = () => {
+                    if (wizardStep === 0 && allocationSubStep === 0) { setAllocationSubStep(1); }
+                    else { setAllocationSubStep(0); setWizardStep((s) => Math.min(WIZARD_STEPS.length - 1, s + 1)); }
+                  };
+                  let label = "Next";
+                  let onClick = advance;
+                  if (wizardStep === 0 && allocationSubStep === 0) {
+                    label = "Confirm Allocation"; onClick = () => { do_.confirmAllocation(); setAllocationSubStep(1); };
+                  } else if (wizardStep === 0 && allocationSubStep === 1) {
+                    label = "Accept order"; onClick = () => { do_.schedulePickup(); setAllocationSubStep(0); setWizardStep((s) => Math.min(4, s + 1)); };
+                  } else if (wizardStep === 1) {
+                    label = "Confirm Schedule"; onClick = () => { do_.advanceOrder("Collected"); setWizardStep((s) => Math.min(4, s + 1)); };
+                  } else if (wizardStep === 2) {
+                    label = "Mark Verified"; onClick = () => { do_.verifyQuality(); setWizardStep((s) => Math.min(4, s + 1)); };
+                  } else if (wizardStep === 3) {
+                    label = "Dispatch order";
+                    onClick = () => { do_.advanceOrder("Dispatched"); setWizardStep((s) => Math.min(4, s + 1)); };
+                  }
+                  if (wizardStep === WIZARD_STEPS.length - 1) {
+                    label = "Close Order"; onClick = () => do_.releasePayment();
+                  }
+                  return (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors text-center whitespace-nowrap ${wizardStep !== 2 ? "invisible" : ""}`}
+                        style={{ borderColor: "#cbd5e1", color: "#64748b" }}
+                      >
+                        Notify farmers
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onClick}
+                        className="w-[180px] rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors whitespace-nowrap text-center"
+                        style={{ backgroundColor: "#095F25" }}
+                      >
+                        {label}
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+          </div>
         </div>
+        </div>
+
+        {/* Chat panel — shifts layout, not an overlay */}
+        {chatOpen && <OrderChat onClose={() => setChatOpen(false)} />}
       </div>
 
       <InvoiceModal
@@ -319,79 +441,17 @@ export default function OrderWorkspace() {
   );
 }
 
-function AccordionItem({
-  index,
-  step,
-  state,
-  expanded,
-  onToggle,
-  footer,
-  children,
-  cardRef,
-}: {
-  index: number;
-  step: Step;
-  state: "done" | "active" | "upcoming";
-  expanded: boolean;
-  onToggle: () => void;
-  footer?: React.ReactNode;
-  children: React.ReactNode;
-  cardRef?: (el: HTMLDivElement | null) => void;
-}) {
-  const cardStyle = { boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" };
-  const cardClass = state === "upcoming"
-    ? "rounded-xl border border-slate-100 bg-white opacity-60"
-    : "rounded-xl border border-slate-100 bg-white";
-
-  return (
-    <div className={cardClass} style={cardStyle} ref={cardRef}>
-      <button
-        type="button"
-        className="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-slate-50/50 rounded-xl"
-        onClick={onToggle}
-      >
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
-          state === "done"
-            ? "bg-leaf text-white"
-            : state === "active"
-              ? "border-2 border-leaf text-leaf"
-              : "bg-slate-100 text-slate-400"
-        }`}>
-          {state === "done" ? <CheckCircle2 size={13} /> : index + 1}
-        </span>
-        <span className={`flex-1 text-sm font-semibold ${state === "upcoming" ? "text-slate-400" : "text-slate-900"}`}>
-          {step}
-        </span>
-        <ChevronDown
-          size={15}
-          className={`shrink-0 text-slate-400 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {expanded ? (
-        <div className="border-t border-slate-100 px-5 pb-3 pt-3" style={{ animation: "accordionOpen 180ms ease" }}>
-          {children}
-          {footer ? (
-            <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
-              {footer}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function Metric({ icon: Icon, iconBg, label, sublabel, value, tone = "normal" }: { icon: LucideIcon; iconBg: string; label: string; sublabel?: string; value: string; tone?: "normal" | "caution" | "warn" }) {
   const valueClass = tone === "warn" ? "text-red-600" : tone === "caution" ? "text-amber-600" : "text-slate-950";
   return (
-    <div className="flex flex-1 flex-col gap-2.5 px-5 first:pl-0 last:pr-0">
-      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}>
+    <div className="flex items-center gap-2.5">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
         <Icon size={15} />
       </span>
       <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
-        <p className={`truncate text-sm font-semibold ${valueClass}`}>{value}</p>
+        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
+        <p className={`truncate text-xs font-medium ${valueClass}`}>{value}</p>
         {sublabel ? <p className="mt-0.5 text-[11px] text-slate-400">{sublabel}</p> : null}
       </div>
     </div>
@@ -407,6 +467,36 @@ function SectionTitle({ title, description }: { title: string; description: stri
   );
 }
 
+function AllocationRecommendationToggle() {
+  const [enabled, setEnabled] = useState(true);
+  return (
+    <div className="flex items-start justify-between gap-6">
+      <div className="flex items-start gap-2.5">
+        <span className="flex shrink-0 items-center justify-center rounded-lg bg-violet-50" style={{ width: 42, height: 42 }}>
+          <Sparkles size={17} className="text-violet-500" />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-slate-900">Use Recommended Allocation</p>
+          <p className="mt-0.5 text-sm text-slate-500">System-suggested allocation based on availability, quality, and route. Turn off to allocate manually.</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={() => setEnabled((v) => !v)}
+        className="relative shrink-0 h-6 w-11 rounded-full transition-colors duration-200 focus:outline-none"
+        style={{ backgroundColor: enabled ? "#095F25" : "#e2e8f0" }}
+      >
+        <span
+          className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
+          style={{ transform: enabled ? "translateX(20px)" : "translateX(0)" }}
+        />
+      </button>
+    </div>
+  );
+}
+
 function AllocationPanel({
   rows,
   totalSuggested,
@@ -418,17 +508,6 @@ function AllocationPanel({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2">
-        <SlidersHorizontal size={16} className="mt-0.5 shrink-0 text-leaf" />
-        <SectionTitle
-          title="Approve suggested allocation"
-          description="Rule-based suggestion using quantity available, quality, freshness/FIFO, route distance, and existing commitments."
-        />
-      </div>
-      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-        <Sparkles size={11} className="shrink-0" />
-        Auto-suggested by rules — review and adjust if needed. You don't need to build this from scratch.
-      </div>
       <AllocationTable rows={rows} />
       {totalSuggested < requiredQuantity ? (
         <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -467,40 +546,40 @@ function AllocationTable({ rows }: { rows: AllocationRow[] }) {
   };
 
   return (
-    <div className="-mx-5 border-y border-slate-100">
+    <div className="overflow-hidden rounded-xl border border-slate-200">
       <table className="w-full text-sm">
         <colgroup>
-          <col />
-          <col className="w-[110px]" />
+          <col className="w-[200px]" />
           <col className="w-[100px]" />
           <col className="w-[100px]" />
-          <col className="w-[130px]" />
+          <col className="w-[100px]" />
+          <col className="w-[100px]" />
           <col className="w-[100px]" />
         </colgroup>
         <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
           <tr className="h-9">
-            <th className="px-4 text-left font-medium">Farmer</th>
+            <th className="px-3 text-left font-medium">Farmer</th>
             <th className="px-3 text-left font-medium">Produce</th>
-            <th className="px-3 text-right font-medium">Allocated</th>
-            <th className="px-3 text-right font-medium">Available</th>
-            <th className="px-3 text-left font-medium">Quality</th>
+            <th className="pl-5 pr-5 text-right font-medium">Allocated</th>
+            <th className="pl-5 pr-5 text-right font-medium">Available</th>
+            <th className="pl-[50px] pr-3 text-left font-medium">Quality</th>
             <th className="px-3 text-right font-medium">Distance</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, index) => (
             <tr key={`${row.farmerId}-${row.produce}-${index}`} className="group border-b border-slate-100 hover:bg-slate-50/60">
-              <td className="px-4 py-0 font-medium text-slate-950">
+              <td className="px-3 py-0 font-medium text-slate-950">
                 <div className="flex h-12 items-center">{row.farmerName}</div>
               </td>
-              <td className="px-3 py-0 text-slate-500">
+              <td className="px-3 py-0 text-slate-900">
                 <div className="flex h-12 items-center">{row.produce}</div>
               </td>
               <td className="p-0">
                 <input
                   ref={(el) => { inputRefs.current[index] = el; }}
-                  className="h-12 w-full bg-transparent px-3 text-right font-semibold text-slate-900 outline-none"
-                  defaultValue={row.allocated}
+                  className="h-12 w-full bg-transparent pl-5 pr-5 text-right text-slate-900 outline-none"
+                  defaultValue={`${row.allocated} kg`}
                   aria-label={`${row.farmerName} allocated`}
                   onFocus={(e) => e.currentTarget.select()}
                   onKeyDown={(e) => {
@@ -516,14 +595,14 @@ function AllocationTable({ rows }: { rows: AllocationRow[] }) {
                   }}
                 />
               </td>
-              <td className="px-3 py-0 text-right text-slate-500">
+              <td className="pl-5 pr-5 py-0 text-right text-slate-500">
                 <div className="flex h-12 items-center justify-end">{row.available} kg</div>
               </td>
-              <td className="px-3 py-0 text-right">
+              <td className="pl-[50px] pr-3 py-0 text-right">
                 <div className="flex h-12 items-center"><RuleIndicator signal={row.quality} /></div>
               </td>
-              <td className="px-3 py-0 text-right">
-                <div className="flex h-12 items-center justify-end"><RuleIndicator signal={row.distance} /></div>
+              <td className="px-3 py-0 text-right text-sm text-slate-500">
+                <div className="flex h-12 items-center justify-end">{row.distance.label}</div>
               </td>
             </tr>
           ))}
@@ -539,7 +618,7 @@ function AllocationTable({ rows }: { rows: AllocationRow[] }) {
             </tr>
           ) : null}
           <tr className="h-11">
-            <td colSpan={6} className="px-4">
+            <td colSpan={6} className="px-3">
               <button
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-slate-900"
                 type="button"
@@ -562,7 +641,7 @@ function RuleIndicator({ signal }: { signal: RuleSignal }) {
     : signal.tone === "watch" ? "bg-amber-400"
     : "bg-red-500";
   return (
-    <span className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap text-xs font-medium text-slate-600">
+    <span className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap text-xs font-medium text-slate-500">
       <span className={`h-2 w-2 rounded-full ${dotClass}`} />
       {signal.label}
     </span>
@@ -752,81 +831,127 @@ function VerificationSummary({ orderStatus, verifiedQuantity, verifiedGrade, run
 }) {
   const isVerified = ["Quality Verified", "Dispatched", "Delivered", "Settled"].includes(orderStatus);
 
-  const initialRows = allocations.map((alloc) => {
+  const initialRows = allocations.map((alloc, idx) => {
     const stop = run?.stops.find((s) => s.farmName === alloc.farmerName);
     const inv = inventory.find((i) => i.farmerId === alloc.farmerId);
     const row = allocationRows.find((r) => r.farmerId === alloc.farmerId);
     const requestedGrade = inv?.estimatedGrade ?? "A";
-    // Pre-fill with collection-center data: stop qty if available, else declared qty with small real-world variance
-    const verifiedQtyNum = stop?.quantity != null ? stop.quantity : alloc.quantity - Math.floor(alloc.quantity * 0.04);
+    const declared = alloc.quantity;
+    const verifiedQtyNum =
+      stop?.quantity != null ? stop.quantity
+      : idx % 3 === 0 ? declared
+      : idx % 3 === 1 ? declared - Math.max(1, Math.floor(declared * 0.04))
+      : declared + Math.max(1, Math.floor(declared * 0.03));
     const verifiedGradeVal = inv?.verifiedGrade ?? verifiedGrade ?? requestedGrade;
+    const diff = verifiedQtyNum - declared;
+    const remarks =
+      diff === 0 ? "Complete"
+      : diff > 0 ? `${diff} excess`
+      : `${Math.abs(diff)} missing`;
     return {
       farmer: alloc.farmerName,
       produce: row?.produce ?? stop?.produce ?? "—",
-      declaredQty: alloc.quantity,
+      declaredQty: declared,
       requestedGrade,
       verifiedQty: String(verifiedQtyNum),
       verifiedGrade: verifiedGradeVal,
+      remarks,
     };
   });
 
   const [rows, setRows] = useState(initialRows);
 
-  const setCell = (i: number, field: "verifiedQty" | "verifiedGrade", value: string) =>
-    setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  const setCell = (i: number, field: "declaredQty" | "verifiedQty" | "requestedGrade" | "verifiedGrade", value: string) =>
+    setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: field === "declaredQty" ? (Number(value) || r.declaredQty) : value } : r));
 
   return (
-    <div className="-mx-5 border-y border-slate-100">
-      <table className="w-full text-sm">
-        <colgroup>
-          <col />
-          <col className="w-24" />
-          <col className="w-36" />
-          <col className="w-32" />
-          <col className="w-32" />
-        </colgroup>
-        <thead className="border-b border-slate-100 bg-slate-50">
-          <tr className="h-9">
-            <th className="px-4 text-left text-xs font-medium text-slate-400">Farmer</th>
-            <th className="px-3 text-left text-xs font-medium text-slate-400">Produce</th>
-            <th className="px-3 text-left text-xs font-medium text-slate-400">Required</th>
-            <th className="px-3 text-left text-xs font-medium text-slate-400">Verified Qty</th>
-            <th className="px-4 text-left text-xs font-medium text-slate-400">Verified Grade</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="group border-b border-slate-100 last:border-0">
-              <td className="px-4 py-2.5 font-medium text-slate-950">{row.farmer}</td>
-              <td className="px-3 py-2.5 text-slate-600">{row.produce}</td>
-              <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{row.declaredQty} kg, Grade {row.requestedGrade}</td>
-              <td className="p-0">
-                <div className="flex h-11 items-center px-3">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={row.verifiedQty}
-                    onChange={(e) => setCell(i, "verifiedQty", e.target.value)}
-                    placeholder="Enter value"
-                    className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:bg-slate-50 rounded px-1"
-                  />
-                </div>
-              </td>
-              <td className="p-0">
-                <div className="flex h-11 items-center px-4">
-                  <input
-                    type="text"
-                    value={row.verifiedGrade}
-                    onChange={(e) => setCell(i, "verifiedGrade", e.target.value)}
-                    placeholder="Grade"
-                    className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:bg-slate-50 rounded px-1"
-                  />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="w-full">
+      {/* List header */}
+      <div className="flex items-center justify-between rounded-lg px-3 py-2 mb-1 bg-green-50">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Farmer</span>
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</span>
+            <InfoIcon size={11} className="text-slate-400" />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Grade</span>
+            <InfoIcon size={11} className="text-slate-400" />
+          </div>
+          <span className="inline-flex w-28 justify-center text-[11px] font-medium uppercase tracking-wide text-slate-400">Remarks</span>
+        </div>
+      </div>
+      <div className="divide-y divide-slate-100">
+      {rows.map((row, i) => (
+        <div key={i} className="flex items-center justify-between px-3 py-5">
+          {/* Left: avatar + name + produce */}
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-slate-100 text-xs font-semibold text-slate-600" style={{ borderRadius: 8 }}>
+              {row.farmer.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+            </span>
+            <div>
+              <p className="text-sm font-medium text-slate-900">{row.farmer}</p>
+              <p className="text-xs text-slate-400">{row.produce}</p>
+            </div>
+          </div>
+
+          {/* Right: Quantity + Grade */}
+          <div className="flex items-center gap-8">
+            <div className="flex items-center">
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={row.verifiedQty}
+                  onChange={(e) => setCell(i, "verifiedQty", e.target.value)}
+                  placeholder="—"
+                  className="w-10 bg-transparent text-right text-sm font-medium tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
+                />
+                <span className="mx-1 text-slate-300">/</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={String(row.declaredQty)}
+                  onChange={(e) => setCell(i, "declaredQty", e.target.value)}
+                  placeholder="—"
+                  className="w-7 bg-transparent text-sm tabular-nums text-slate-400 outline-none placeholder:text-slate-300"
+                />
+                <span className="ml-1 text-sm text-slate-400">kg</span>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="text"
+                value={row.verifiedGrade}
+                onChange={(e) => setCell(i, "verifiedGrade", e.target.value)}
+                placeholder="—"
+                className="w-4 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300"
+              />
+              <span className="mx-1 text-slate-300">/</span>
+              <input
+                type="text"
+                value={row.requestedGrade}
+                onChange={(e) => setCell(i, "requestedGrade", e.target.value)}
+                placeholder="—"
+                className="w-4 bg-transparent text-sm text-slate-400 outline-none placeholder:text-slate-300"
+              />
+            </div>
+            {(() => {
+              const isComplete = row.remarks === "Complete";
+              const isMissing = row.remarks.includes("missing");
+              const borderClass = isComplete ? "border-green-400" : isMissing ? "border-amber-400" : "border-blue-400";
+              const dotClass = isComplete ? "bg-green-500" : isMissing ? "bg-amber-400" : "bg-blue-400";
+              return (
+                <span className={`inline-flex w-28 items-center justify-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-slate-600 ${borderClass}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+                  {row.remarks}
+                </span>
+              );
+            })()}
+          </div>
+        </div>
+      ))}
+      </div>
     </div>
   );
 }
@@ -950,59 +1075,81 @@ function InvoiceCard({
 
   return (
     <>
-      <div className="space-y-4">
-        {/* Row 1: Buyer Payment · Order Value · Farmer Payout · Invoice */}
-        <div className="grid grid-cols-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Buyer Payment</p>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${buyerPaymentStatus === "Received" ? "bg-green-500" : "bg-amber-400"}`} />
-              <p className="text-sm text-slate-900">{buyerPaymentStatus}</p>
+      <div className="space-y-5">
+
+        {/* Sub-section 1: Buyer's Invoice */}
+        <div>
+          <p className="mb-3 text-sm font-semibold text-slate-500">Buyer's Invoice</p>
+          <div className="grid grid-cols-3 gap-y-4">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Invoice</p>
+              {order.invoiceStatus === "Generated" ? (
+                <button type="button" onClick={onOpenInvoice} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
+                  <FileText size={12} /> INV-{order.id}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenInvoice}
+                  className="mt-1 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Create invoice
+                </button>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Order Value</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrency(invoiceAmount)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Payment Status</p>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${buyerPaymentStatus === "Received" ? "bg-green-500" : "bg-amber-400"}`} />
+                <p className="text-sm text-slate-900">{buyerPaymentStatus}</p>
+              </div>
             </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Order Value</p>
-            <p className="mt-1 text-sm text-slate-900">{formatCurrency(invoiceAmount)}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Farmer Payout</p>
-            <p className="mt-1 text-sm text-slate-900">{farmerRows.length} farmers</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Invoice</p>
-            <button type="button" onClick={onOpenInvoice} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
-              <FileText size={12} /> INV-{order.id}
-            </button>
+        </div>
+
+        {/* Sub-section 2: Farmer's Payout */}
+        <div className="border-t border-slate-100 pt-5">
+          <p className="mb-3 text-sm font-semibold text-slate-500">Farmer's Payout</p>
+          <div className="grid grid-cols-3 gap-y-4">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Payment</p>
+              <button
+                type="button"
+                onClick={onReleasePayment}
+                className="mt-1 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Pay farmers
+              </button>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Net Payout</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrency(totalNet)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Coop Fee</p>
+              <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalCoopFee)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Logistics</p>
+              <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalLogistics)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Farmers</p>
+              <p className="mt-1 text-sm text-slate-900">{farmerRows.length} farmers</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Breakdown</p>
+              <button type="button" onClick={() => setDetailsOpen(true)} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
+                <FileText size={12} /> View details
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Row 2: Net Payout · Coop Fee · Logistics · Payment Details */}
-        <div className="grid grid-cols-4 border-t border-slate-100 pt-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Net Payout</p>
-            <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalNet)}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Coop Fee</p>
-            <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalCoopFee)}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Logistics</p>
-            <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalLogistics)}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Payment Details</p>
-            <button type="button" onClick={() => setDetailsOpen(true)} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
-              <FileText size={12} /> View breakdown
-            </button>
-          </div>
-        </div>
-
-        {settled && (
-          <p className="flex items-center gap-1.5 text-sm text-green-600">
-            <CheckCircle2 size={14} /> Payment released to all farmers.
-          </p>
-        )}
       </div>
 
       <ReleasePaymentModal
@@ -1332,4 +1479,209 @@ function getPaymentMeta(invoiceAmount: number, paymentStatus: string, invoiceSta
         : "Payment values are estimated until delivery and collection centre verification are complete.";
 
   return { coopFee, logisticsCharge, qualityAdjustment, estimatedFarmerPayout, buyerPayment, note };
+}
+
+type ChatMessage = {
+  id: number;
+  role: "farmer" | "manager" | "buyer";
+  name: string;
+  text: string;
+  time: string;
+  resolved?: boolean;
+  actions?: { label: string; variant: "primary" | "secondary" }[];
+};
+
+const INITIAL_MESSAGES: ChatMessage[] = [
+  {
+    id: 1,
+    role: "farmer",
+    name: "Ravi Kumar",
+    text: "FreshMart Buyer; I wanted to flag early. We only have 80 kg of tomatoes ready this week, not the 150 kg on the order. Harvest was shorter than expected.",
+    time: "9:14 AM",
+    actions: [
+      { label: "Accept 80 kg", variant: "secondary" },
+      { label: "Reallocate 70 kg", variant: "primary" },
+    ],
+  },
+  {
+    id: 3,
+    role: "buyer",
+    name: "FreshMart Buyer",
+    text: "We need the full 150 kg for our weekly supply. Please reallocate the remaining 70 kg from another farm if possible.",
+    time: "9:35 AM",
+  },
+  {
+    id: 4,
+    role: "manager",
+    name: "Manager",
+    text: "Got it. I'll source 70 kg from Patel Agro and update the allocation now. Ravi — your confirmed quantity is 80 kg. Thanks.",
+    time: "9:41 AM",
+    resolved: true,
+  },
+];
+
+const roleColors: Record<ChatMessage["role"], { dot: string; name: string; bubble: string; text: string; icon: React.ElementType }> = {
+  farmer:  { dot: "#16a34a", name: "text-slate-700", bubble: "#f0fdf4", text: "text-slate-800", icon: Leaf        },
+  manager: { dot: "#3b82f6", name: "text-slate-700", bubble: "#eff6ff", text: "text-slate-800", icon: User        },
+  buyer:   { dot: "#ec4899", name: "text-slate-700", bubble: "#fdf2f8", text: "text-slate-800", icon: ShoppingBag },
+};
+
+function OrderChat({ onClose }: { onClose: () => void }) {
+  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [draft, setDraft] = useState("");
+  const [issueResolved, setIssueResolved] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  function send() {
+    const text = draft.trim();
+    if (!text) return;
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), role: "manager", name: "Manager", text, time: new Date().toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" }) },
+    ]);
+    setDraft("");
+  }
+
+  function handleAction(label: string) {
+    const text = label === "Reallocate 70 kg"
+      ? "Reallocation confirmed — sourcing 70 kg from Patel Agro. Allocation updated."
+      : "Accepted 80 kg from Riverbend Farms. Order quantity adjusted accordingly.";
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), role: "manager", name: "Manager", text, time: new Date().toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" }), resolved: true },
+    ]);
+    setIssueResolved(true);
+    // Remove action chips from message 1
+    setMessages((prev) => prev.map((m) => m.id === 1 ? { ...m, actions: undefined } : m));
+  }
+
+  return (
+    <aside className="flex w-[360px] shrink-0 flex-col border-l border-slate-100 bg-white">
+      {/* Header */}
+      <div className="flex h-14 shrink-0 items-center justify-between bg-white px-5" style={{ borderBottom: "1px solid #ebebeb" }}>
+        <p className="text-sm font-semibold text-slate-900">Order Coordination</p>
+        <div className="flex items-center">
+          {(["farmer", "manager", "buyer"] as const).map((role, i) => {
+            const c = roleColors[role];
+            const Icon = c.icon;
+            return (
+              <div
+                key={role}
+                className="flex h-7 w-7 items-center justify-center rounded-full ring-2 ring-white"
+                style={{ backgroundColor: c.bubble, color: c.dot, marginLeft: i === 0 ? 0 : -8, zIndex: i }}
+              >
+                <Icon size={13} />
+              </div>
+            );
+          })}
+          <div
+            className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-slate-500 ring-2 ring-white"
+            style={{ backgroundColor: "#f1f5f9", marginLeft: -8, zIndex: 3 }}
+          >
+            +3
+          </div>
+        </div>
+      </div>
+
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        {messages.map((msg) => {
+          const c = roleColors[msg.role];
+          return (
+            <div key={msg.id}>
+              {/* Avatar + name row */}
+              <div className="mb-1.5 flex items-center gap-2">
+                <div
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: c.bubble, color: c.dot }}
+                >
+                  <c.icon size={13} />
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xs font-semibold text-slate-800">{msg.name}</span>
+                  <span className="text-[10px] text-slate-400">{msg.time}</span>
+                </div>
+              </div>
+
+              {/* Bubble */}
+              <div className="pl-9 space-y-2">
+                <div
+                  className="rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-xs leading-relaxed text-slate-700"
+                  style={{ backgroundColor: "#f8fafc", boxShadow: "0 1px 2px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)" }}
+                >
+                  {msg.text}
+                </div>
+
+                {/* Action chips */}
+                {msg.actions && (
+                  <div className="flex gap-2 flex-wrap">
+                    {msg.actions.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={() => handleAction(action.label)}
+                        className="rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors"
+                        style={action.variant === "primary"
+                          ? { backgroundColor: "#095F25", color: "#fff" }
+                          : { backgroundColor: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0" }
+                        }
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+              </div>
+            </div>
+          );
+        })}
+
+        {/* System message — issue resolved */}
+        {issueResolved && (
+          <div className="flex items-center gap-2 py-1">
+            <div className="h-px flex-1" style={{ backgroundColor: "#e2e8f0" }} />
+            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400">
+              <CheckCircle2 size={11} className="text-green-500" /> Issue marked resolved by system
+            </span>
+            <div className="h-px flex-1" style={{ backgroundColor: "#e2e8f0" }} />
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="shrink-0 bg-white px-4 py-3" style={{ borderTop: "1px solid #ebebeb" }}>
+        <div
+          className="flex items-end gap-2 rounded-2xl bg-white px-4 py-3"
+          style={{ boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)", border: "1px solid #ebebeb" }}
+        >
+          <textarea
+            rows={2}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="Send a message…"
+            className="flex-1 resize-none bg-transparent text-xs text-slate-900 placeholder:text-slate-400 outline-none"
+          />
+          <button
+            type="button"
+            onClick={send}
+            disabled={!draft.trim()}
+            className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-30"
+            style={{ backgroundColor: "#095F25", color: "#fff" }}
+          >
+            <ChevronRight size={13} className="-rotate-90" />
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[10px] text-slate-400">Visible to all parties</p>
+      </div>
+    </aside>
+  );
 }

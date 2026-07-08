@@ -38,10 +38,10 @@ export default function AppShell() {
     <div className="h-[100dvh] overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
       <div className="flex h-full overflow-hidden">
         {/* Sidebar — desktop only */}
-        <div className="hidden sm:block">
+        <div className="hidden sm:flex">
           <Sidebar notificationsOpen={notificationsOpen} onToggleNotifications={() => setNotificationsOpen((open) => !open)} />
+          <div className="w-px shrink-0 bg-slate-200" />
         </div>
-        <div className="hidden sm:block w-px shrink-0 bg-slate-200" />
 
         {/* Main content */}
         <main className="min-w-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6 pb-20 sm:pb-6">
