@@ -137,7 +137,7 @@ export default function OrderWorkspace() {
   const toggleStep = (step: Step) => setExpandedStep(expandedStep === step ? null : step);
 
   return (
-    <div className="-m-6 flex h-[calc(100vh)] flex-col overflow-hidden bg-slate-50">
+    <div className="-m-6 flex h-[calc(100vh)] flex-col overflow-hidden bg-white">
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex h-11 items-center gap-2 px-4">
           {/* Brand mark */}
@@ -188,7 +188,7 @@ export default function OrderWorkspace() {
           </div>
 
           {/* Global metrics */}
-          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+          <div className="rounded-xl bg-white px-5 py-4">
             <div className="flex items-stretch divide-x divide-slate-100">
               <Metric icon={Sprout} iconBg="bg-green-50 text-green-600" label="Items" value={itemNames} />
               <Metric icon={Scale} iconBg="bg-blue-50 text-blue-600" label="Quantity" value={`${totalOrderQuantity} kg`} />
@@ -338,14 +338,13 @@ function AccordionItem({
   children: React.ReactNode;
   cardRef?: (el: HTMLDivElement | null) => void;
 }) {
-  const cardClass = state === "active"
-    ? "rounded-xl border border-slate-300 bg-white shadow-sm"
-    : state === "done"
-      ? "rounded-xl border border-slate-200 bg-white"
-      : "rounded-xl border border-slate-200 bg-white opacity-60";
+  const cardStyle = { boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" };
+  const cardClass = state === "upcoming"
+    ? "rounded-xl border border-slate-100 bg-white opacity-60"
+    : "rounded-xl border border-slate-100 bg-white";
 
   return (
-    <div className={cardClass} ref={cardRef}>
+    <div className={cardClass} style={cardStyle} ref={cardRef}>
       <button
         type="button"
         className="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-slate-50/50 rounded-xl"
