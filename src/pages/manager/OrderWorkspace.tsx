@@ -1143,7 +1143,11 @@ function InvoiceCard({
         <div>
           <div className="mb-4 flex items-center justify-between">
             <p className="text-base font-semibold text-slate-700">Buyer's Invoice</p>
-            <button type="button" onClick={onOpenInvoice} className="w-[120px] rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors text-center">
+            <button
+              type="button"
+              onClick={onOpenInvoice}
+              className={`w-[120px] rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors text-center ${order.invoiceStatus === "Generated" ? "invisible" : ""}`}
+            >
               Create Invoice
             </button>
           </div>
