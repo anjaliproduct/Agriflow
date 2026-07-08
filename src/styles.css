@@ -21,6 +21,41 @@ textarea {
   font: inherit;
 }
 
+/* Leaflet zoom controls — circular modern style */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  background: transparent !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08) !important;
+  color: #374151 !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 0.15s, box-shadow 0.15s !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background: #f8fafc !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+  color: #111827 !important;
+}
+
 @layer components {
   .card {
     @apply rounded-lg border border-slate-200 bg-white shadow-soft;

@@ -171,15 +171,8 @@ export default function RouteMap({
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200">
+    <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ isolation: "isolate" }}>
       <div ref={containerRef} style={{ height }} />
-      {/* AI badge */}
-      <div className="absolute left-3 top-3 z-[1000] flex items-center gap-1.5 rounded-full border border-green-100 bg-white/96 px-3 py-1.5 shadow-md backdrop-blur-sm">
-        <Sparkles size={12} className="text-green-600" />
-        <span className="text-[11px] font-semibold text-green-700">
-          AI-optimized · {stops.length} stops
-        </span>
-      </div>
     </div>
   );
 }

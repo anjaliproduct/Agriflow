@@ -60,13 +60,6 @@ export default function Finance() {
   const pendingPayoutOrders = activeOrders.filter((o) => o.paymentStatus !== "Released" && ["Delivered", "Quality Verified", "Dispatched", "Collected", "Pickup Scheduled", "Allocated"].includes(o.status));
   const pendingPayoutTotal = pendingPayoutOrders.reduce((s, o) => s + getOrderFinancials(o).netPayout, 0);
 
-  // Revenue split bar data
-  const receivedTotal = settledOrders.reduce((s, o) => s + getOrderFinancials(o).gross, 0);
-  const overdue = activeOrders.filter((o) => invoicePaymentStatus(o) === "Overdue");
-  const overdueTotal = overdue.reduce((s, o) => s + getOrderFinancials(o).gross, 0);
-  const pendingTotal = pendingInvoices.filter((o) => invoicePaymentStatus(o) === "Pending").reduce((s, o) => s + getOrderFinancials(o).gross, 0);
-  const splitTotal = receivedTotal + pendingTotal + overdueTotal || 1;
-
   // Farmer payout aggregates
   const farmerPayouts = farmers.map((farmer) => {
     const allocs = allOrders.flatMap((o) =>
@@ -130,45 +123,14 @@ export default function Finance() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {metrics.map(({ icon: Icon, label, value, sub }) => (
             <div key={label} className="rounded-2xl bg-white px-5 py-5" style={cardShadow}>
-              <Icon size={16} className="text-slate-400 mb-3" />
-              <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+              <div className="flex items-center gap-2">
+                <Icon size={16} className="text-slate-400" />
+                <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+              </div>
               <p className="mt-1.5 text-sm font-semibold text-slate-700">{label}</p>
               <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
             </div>
           ))}
-        </div>
-
-        {/* Revenue split bar */}
-        <div className="rounded-2xl bg-white px-6 py-5" style={cardShadow}>
-          <p className="text-sm font-semibold text-slate-900 mb-4">Revenue breakdown</p>
-          <div className="flex h-2.5 w-full overflow-hidden rounded-full gap-0.5">
-            {receivedTotal > 0 && (
-              <div className="h-full rounded-full bg-green-500" style={{ width: `${(receivedTotal / splitTotal) * 100}%` }} />
-            )}
-            {pendingTotal > 0 && (
-              <div className="h-full rounded-full bg-amber-400" style={{ width: `${(pendingTotal / splitTotal) * 100}%` }} />
-            )}
-            {overdueTotal > 0 && (
-              <div className="h-full rounded-full bg-red-400" style={{ width: `${(overdueTotal / splitTotal) * 100}%` }} />
-            )}
-            {(receivedTotal + pendingTotal + overdueTotal) === 0 && (
-              <div className="h-full w-full rounded-full bg-slate-100" />
-            )}
-          </div>
-          <div className="mt-3 flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-xs text-slate-500">Received <span className="font-semibold text-slate-900">{formatCurrency(receivedTotal)}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
-              <span className="text-xs text-slate-500">Pending <span className="font-semibold text-slate-900">{formatCurrency(pendingTotal)}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-red-400" />
-              <span className="text-xs text-slate-500">Overdue <span className="font-semibold text-slate-900">{formatCurrency(overdueTotal)}</span></span>
-            </div>
-          </div>
         </div>
 
         {/* Two columns */}

@@ -1,30 +1,35 @@
-import { ArrowUpDown, CheckSquare, ChevronLeft, ChevronRight, Heart, Search, ShoppingCart, Square, Wheat } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, Heart, Search, ShoppingCart, Wheat } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/appStore";
 
+
 const produceImages: Record<string, string> = {
-  Tomatoes: "/tomato-front.png",
-  Onions:    "/Onion.png",
-  Potatoes:  "/Potato.png",
-  Carrots:   "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&h=400&fit=crop&auto=format",
-  Spinach:   "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600&h=400&fit=crop&auto=format",
-  Broccoli:  "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=600&h=400&fit=crop&auto=format",
-  Capsicum:  "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&h=400&fit=crop&auto=format",
-  Cucumber:  "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=600&h=400&fit=crop&auto=format",
-  Cabbage:   "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600&h=400&fit=crop&auto=format",
-  Corn:      "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=600&h=400&fit=crop&auto=format",
-  Garlic:    "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=600&h=400&fit=crop&auto=format",
+  Tomatoes:   "/Farm%20Produce/Tomato.png",
+  Onions:     "/Farm%20Produce/Onion.png",
+  Potatoes:   "/Farm%20Produce/Potato.png",
+  Carrots:    "/Farm%20Produce/Carrot.png",
+  Spinach:    "/Farm%20Produce/Spinach.png",
+  Broccoli:   "/Farm%20Produce/Brocolli.png",
+  Cucumber:   "/Farm%20Produce/Cucumber.png",
+  Cabbage:    "/Farm%20Produce/Cabbage.png",
+  Corn:       "/Farm%20Produce/Corn.png",
+  Blueberry:  "/Farm%20Produce/Blueberry.png",
+  Lemon:      "/Farm%20Produce/Lemon.png",
+  Pomegranate: "/Farm%20Produce/Pomogranate.png",
+  Capsicum:   "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&h=400&fit=crop&auto=format",
 };
 
 const produceEmoji: Record<string, string> = {
   Tomatoes: "🍅", Onions: "🧅", Potatoes: "🥔", Carrots: "🥕", Spinach: "🥬",
-  Broccoli: "🥦", Capsicum: "🫑", Cucumber: "🥒", Cabbage: "🥬", Corn: "🌽", Garlic: "🧄",
+  Broccoli: "🥦", Capsicum: "🫑", Cucumber: "🥒", Cabbage: "🥬", Corn: "🌽",
+  Blueberry: "🫐", Lemon: "🍋", Pomegranate: "🍎",
 };
 
 const producePriceMap: Record<string, number> = {
   Tomatoes: 2.40, Onions: 1.80, Potatoes: 1.60, Carrots: 2.20, Spinach: 3.50,
-  Broccoli: 3.20, Capsicum: 2.80, Cucumber: 1.90, Cabbage: 1.40, Corn: 2.00, Garlic: 4.50,
+  Broccoli: 3.20, Capsicum: 2.80, Cucumber: 1.90, Cabbage: 1.40, Corn: 2.00,
+  Blueberry: 6.50, Lemon: 2.90, Pomegranate: 4.20,
 };
 
 // Store-backed produce
@@ -35,12 +40,14 @@ const EXTRA_PRODUCE: Array<{
   name: string; available: number; farmCount: number; earliestHarvest: string;
   dominantGrade: "A" | "B"; confidence: "High" | "Medium" | "Low";
 }> = [
-  { name: "Broccoli",  available: 100, farmCount: 2, earliestHarvest: "2026-07-04", dominantGrade: "B", confidence: "Medium" },
-  { name: "Capsicum",  available: 180, farmCount: 1, earliestHarvest: "2026-07-06", dominantGrade: "B", confidence: "Medium" },
-  { name: "Cucumber",  available: 220, farmCount: 2, earliestHarvest: "2026-07-07", dominantGrade: "A", confidence: "Medium" },
-  { name: "Cabbage",   available: 180, farmCount: 1, earliestHarvest: "2026-07-05", dominantGrade: "A", confidence: "Medium" },
-  { name: "Corn",      available: 95,  farmCount: 1, earliestHarvest: "2026-07-06", dominantGrade: "A", confidence: "Low"    },
-  { name: "Garlic",    available: 310, farmCount: 2, earliestHarvest: "2026-07-03", dominantGrade: "A", confidence: "Medium" },
+  { name: "Broccoli",    available: 100, farmCount: 2, earliestHarvest: "2026-07-04", dominantGrade: "B", confidence: "Medium" },
+  { name: "Capsicum",    available: 180, farmCount: 1, earliestHarvest: "2026-07-06", dominantGrade: "B", confidence: "Medium" },
+  { name: "Blueberry",   available: 60,  farmCount: 1, earliestHarvest: "2026-07-08", dominantGrade: "A", confidence: "Medium" },
+  { name: "Lemon",       available: 140, farmCount: 2, earliestHarvest: "2026-07-05", dominantGrade: "A", confidence: "Medium" },
+  { name: "Cabbage",     available: 180, farmCount: 1, earliestHarvest: "2026-07-05", dominantGrade: "A", confidence: "Medium" },
+  { name: "Cucumber",    available: 220, farmCount: 2, earliestHarvest: "2026-07-07", dominantGrade: "A", confidence: "Medium" },
+  { name: "Corn",        available: 95,  farmCount: 1, earliestHarvest: "2026-07-06", dominantGrade: "A", confidence: "Low"    },
+  { name: "Pomegranate", available: 90,  farmCount: 1, earliestHarvest: "2026-07-02", dominantGrade: "B", confidence: "Low"    },
 ];
 
 const TODAY = new Date("2026-07-08");
@@ -49,9 +56,9 @@ function daysAgoLabel(dateStr: string): string {
   if (!dateStr) return "";
   const d = new Date(`${dateStr}T00:00:00`);
   const diff = Math.floor((TODAY.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  if (diff <= 0) return "Harvested today";
-  if (diff === 1) return "Harvested yesterday";
-  return `Harvested ${diff} days ago`;
+  if (diff <= 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return `${diff} days ago`;
 }
 
 type CartItem = { name: string; qty: number; pricePerKg: number };
@@ -64,15 +71,34 @@ type ProduceItem = {
 export default function BrowseProduce() {
   const navigate = useNavigate();
   const { inventory, farmers } = useAppStore();
-  const [search, setSearch]           = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
-  const [minQty, setMinQty]           = useState("");
-  const [deliveryBy, setDeliveryBy]   = useState("2026-07-10");
+  const [deliveryBy, setDeliveryBy]   = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [bulkMode, setBulkMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingQty, setEditingQty] = useState<Record<string, number>>({});
   const [produceType, setProduceType] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const [activeSegment, setActiveSegment] = useState<null | "type" | "grade" | "delivery">(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+        setActiveSegment(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [expanded]);
+
+  const produceTypeLabels: Record<string, string> = {
+    "": "All types", leafy: "Leafy greens", root: "Root vegetables", fruit_veg: "Fruit vegetables", brassica: "Brassicas", fruits: "Fruits",
+  };
+  const gradeLabels: Record<string, string> = { "": "Any grade", A: "Grade A", B: "Grade B" };
+  const deliveryLabel = deliveryBy
+    ? new Date(`${deliveryBy}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "Add date";
 
   const storeProduce = STORE_PRODUCE.map((name) => {
     const items = inventory.filter((item) => item.produce === name);
@@ -94,18 +120,18 @@ export default function BrowseProduce() {
   });
 
   const LEAFY = ["Spinach", "Cabbage"];
-  const ROOT = ["Potatoes", "Carrots", "Garlic", "Onions"];
+  const ROOT = ["Potatoes", "Carrots", "Onions"];
   const FRUIT_VEG = ["Tomatoes", "Capsicum", "Cucumber", "Corn"];
   const BRASSICA = ["Broccoli", "Cabbage"];
+  const FRUITS = ["Blueberry", "Lemon", "Pomegranate"];
 
   const allProduce = [...storeProduce, ...EXTRA_PRODUCE].filter((item) => {
-    if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (gradeFilter && item.dominantGrade !== gradeFilter) return false;
-    if (minQty && item.available < Number(minQty)) return false;
     if (produceType === "leafy" && !LEAFY.includes(item.name)) return false;
     if (produceType === "root" && !ROOT.includes(item.name)) return false;
     if (produceType === "fruit_veg" && !FRUIT_VEG.includes(item.name)) return false;
     if (produceType === "brassica" && !BRASSICA.includes(item.name)) return false;
+    if (produceType === "fruits" && !FRUITS.includes(item.name)) return false;
     return true;
   });
 
@@ -130,133 +156,142 @@ export default function BrowseProduce() {
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex h-11 items-center justify-between gap-2 px-3 sm:px-4">
           <span className="text-sm font-medium text-slate-900">Browse Produce</span>
+          <button
+            onClick={() => navigate("/buyer/cart", { state: { cart } })}
+            className="relative flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+          >
+            <ShoppingCart size={13} />
+            Cart
+            {cart.length > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#4A7C20" }}>
+                {cart.length}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
-      {/* Body: sidebar + cards */}
+      {/* Body: cards */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left filter sidebar */}
-        <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-slate-200 bg-white px-5 py-6 gap-6">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Produce type</p>
-            <div className="relative">
-              <select
-                className="input text-sm w-full appearance-none"
-                style={{ borderRadius: "8px", paddingRight: "2rem" }}
-                value={produceType}
-                onChange={(e) => setProduceType(e.target.value)}
-              >
-                <option value="">All types</option>
-                <option value="leafy">Leafy greens</option>
-                <option value="root">Root vegetables</option>
-                <option value="fruit_veg">Fruit vegetables</option>
-                <option value="brassica">Brassicas</option>
-              </select>
-              <ChevronRight size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400" />
-            </div>
-          </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Grade</p>
-            <div className="relative">
-              <select
-                className="input text-sm w-full appearance-none"
-                style={{ borderRadius: "8px", paddingRight: "2rem" }}
-                value={gradeFilter}
-                onChange={(e) => setGradeFilter(e.target.value)}
-              >
-                <option value="">Any grade</option>
-                <option value="A">Grade A</option>
-                <option value="B">Grade B</option>
-              </select>
-              <ChevronRight size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400" />
-            </div>
-          </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Min quantity</p>
-            <input
-              type="text"
-              inputMode="numeric"
-              className="input text-sm w-full"
-              style={{ borderRadius: "12px" }}
-              placeholder="e.g. 100"
-              value={minQty}
-              onChange={(e) => setMinQty(e.target.value.replace(/\D/g, ""))}
-            />
-          </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Delivery by</p>
-            <input
-              className="input text-sm w-full"
-              style={{ borderRadius: "12px" }}
-              type="date"
-              value={deliveryBy}
-              onChange={(e) => setDeliveryBy(e.target.value)}
-            />
-          </div>
-          {(gradeFilter || minQty || produceType) && (
-            <button
-              className="text-xs font-medium text-slate-400 hover:text-slate-700 text-left"
-              onClick={() => { setGradeFilter(""); setMinQty(""); setProduceType(""); }}
-            >
-              Clear filters
-            </button>
-          )}
-        </aside>
-
         {/* Cards area */}
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="relative flex flex-col flex-1 overflow-hidden">
 
-          {/* Catalogue subheader */}
-          <div className="flex h-[72px] shrink-0 items-center gap-3 px-5" style={{ backgroundColor: "#f8f8f8", boxShadow: "0 1px 12px rgba(0,0,0,0.07)" }}>
-            {/* Left: Select multiple */}
-            <button
-              onClick={() => { setBulkMode((v) => !v); setSelected(new Set()); }}
-              className="flex h-9 items-center gap-1.5 border px-3 text-xs font-semibold transition-colors shrink-0"
-              style={bulkMode
-                ? { borderRadius: "24px", borderColor: "#4A7C20", color: "#4A7C20", backgroundColor: "#F2FFEF" }
-                : { borderRadius: "24px", borderColor: "#e2e8f0", color: "#64748b", backgroundColor: "#ffffff" }}
-            >
-              {bulkMode ? <CheckSquare size={13} /> : <Square size={13} />}
-              {bulkMode ? "Cancel" : "Select multiple"}
-            </button>
+          {/* Catalogue subheader — grows 40px top + 40px bottom when expanded */}
+          <div
+            className="relative z-50 flex shrink-0 items-center justify-center bg-white px-5 transition-[height] duration-200"
+            style={{ height: expanded ? "152px" : "72px", boxShadow: "0 1px 12px rgba(0,0,0,0.07)" }}
+          >
+            <div ref={filterBarRef} className="flex items-center gap-2">
+              {!expanded ? (
+                /* Collapsed — single line, plain values only */
+                <button
+                  onClick={() => setExpanded(true)}
+                  className="flex h-12 items-center gap-3 rounded-full border border-slate-200 bg-white pl-6 pr-1.5 text-sm font-semibold text-slate-900 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <span>{produceTypeLabels[produceType]}</span>
+                  <span className="h-4 w-px bg-slate-200" />
+                  <span>{gradeLabels[gradeFilter]}</span>
+                  <span className="h-4 w-px bg-slate-200" />
+                  <span>{deliveryLabel}</span>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full text-white" style={{ backgroundColor: "#4A7C20" }}>
+                    <Search size={15} />
+                  </span>
+                </button>
+              ) : (
+                /* Expanded — centered within the now-taller subheader */
+                <div
+                  className="flex items-center rounded-full border border-slate-200 bg-white p-2 shadow-xl"
+                  style={{ minWidth: "560px" }}
+                >
+                  {/* Produce type segment */}
+                  <label
+                    className="flex h-16 flex-1 cursor-pointer flex-col justify-center rounded-full px-6 transition-colors"
+                    style={{ backgroundColor: activeSegment === "type" ? "#f2f2f2" : "transparent" }}
+                  >
+                    <span className="text-xs font-bold text-slate-900">What</span>
+                    <select
+                      autoFocus
+                      className="w-full cursor-pointer appearance-none truncate bg-transparent text-sm text-slate-600 outline-none"
+                      value={produceType}
+                      onFocus={() => setActiveSegment("type")}
+                      onChange={(e) => { setProduceType(e.target.value); setActiveSegment("type"); }}
+                    >
+                      <option value="">All types</option>
+                      <option value="leafy">Leafy greens</option>
+                      <option value="root">Root vegetables</option>
+                      <option value="fruit_veg">Fruit vegetables</option>
+                      <option value="brassica">Brassicas</option>
+                      <option value="fruits">Fruits</option>
+                    </select>
+                  </label>
 
-            {/* Center: Search + Sort */}
-            <div className="flex items-center gap-2 mx-auto">
-              <div className="relative w-[360px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                <input
-                  className="input pl-9 py-2 text-sm w-full"
-                  style={{ borderRadius: "24px" }}
-                  placeholder="Search produce"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <button className="flex h-9 w-9 items-center justify-center border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors shrink-0 rounded-full">
-                <ArrowUpDown size={15} />
-              </button>
-            </div>
+                  <div className="h-8 w-px shrink-0 bg-slate-200" style={{ opacity: activeSegment === "type" || activeSegment === "grade" ? 0 : 1 }} />
 
-            {/* Right: Cart */}
-            <button
-              onClick={() => navigate("/buyer/cart", { state: { cart } })}
-              className="relative flex h-9 items-center gap-1.5 border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors shrink-0 rounded-full"
-            >
-              <ShoppingCart size={13} />
-              Cart
-              {cart.length > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#4A7C20" }}>
-                  {cart.length}
-                </span>
+                  {/* Grade segment */}
+                  <label
+                    className="flex h-16 flex-1 cursor-pointer flex-col justify-center rounded-full px-6 transition-colors"
+                    style={{ backgroundColor: activeSegment === "grade" ? "#f2f2f2" : "transparent" }}
+                  >
+                    <span className="text-xs font-bold text-slate-900">Grade</span>
+                    <select
+                      className="w-full cursor-pointer appearance-none truncate bg-transparent text-sm text-slate-600 outline-none"
+                      value={gradeFilter}
+                      onFocus={() => setActiveSegment("grade")}
+                      onChange={(e) => { setGradeFilter(e.target.value); setActiveSegment("grade"); }}
+                    >
+                      <option value="">Any grade</option>
+                      <option value="A">Grade A</option>
+                      <option value="B">Grade B</option>
+                    </select>
+                  </label>
+
+                  <div className="h-8 w-px shrink-0 bg-slate-200" style={{ opacity: activeSegment === "grade" || activeSegment === "delivery" ? 0 : 1 }} />
+
+                  {/* Delivery date segment — custom label text, native icon/placeholder hidden */}
+                  <label
+                    className="relative flex h-16 flex-1 cursor-pointer flex-col justify-center rounded-full px-6 transition-colors"
+                    style={{ backgroundColor: activeSegment === "delivery" ? "#f2f2f2" : "transparent" }}
+                  >
+                    <span className="text-xs font-bold text-slate-900">When</span>
+                    <span className="truncate text-sm text-slate-600">{deliveryLabel}</span>
+                    <input
+                      type="date"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      value={deliveryBy}
+                      onFocus={() => setActiveSegment("delivery")}
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      onChange={(e) => { setDeliveryBy(e.target.value); setActiveSegment("delivery"); }}
+                    />
+                  </label>
+
+                  <button
+                    onClick={() => { setExpanded(false); setActiveSegment(null); }}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: "#4A7C20" }}
+                    aria-label="Apply filters"
+                  >
+                    <Search size={17} />
+                  </button>
+                </div>
               )}
-            </button>
+
+              {!expanded && (gradeFilter || produceType || deliveryBy) && (
+                <button
+                  className="shrink-0 text-xs font-medium text-slate-400 hover:text-slate-700"
+                  onClick={() => { setGradeFilter(""); setProduceType(""); setDeliveryBy(""); }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto bg-white px-5 py-5">
           <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
             {allProduce.map((item) => {
               const img = produceImages[item.name];
+              const zoomedOut = item.name === "Lemon" || item.name === "Pomegranate";
               const pricePerKg = producePriceMap[item.name] ?? 2.40;
               const harvestLabel = daysAgoLabel(item.earliestHarvest);
               const inCart = cart.find((c) => c.name === item.name);
@@ -272,47 +307,26 @@ export default function BrowseProduce() {
                   }}
                 >
                   {/* Image — full bleed */}
-                  <div
-                    className="relative shrink-0 overflow-hidden"
-                    style={{ height: "180px", cursor: bulkMode ? "pointer" : "default" }}
-                    onClick={bulkMode ? () => setSelected((prev) => {
-                      const next = new Set(prev);
-                      next.has(item.name) ? next.delete(item.name) : next.add(item.name);
-                      return next;
-                    }) : undefined}
-                  >
+                  <div className="relative shrink-0 overflow-hidden" style={{ height: "180px" }}>
                     {img ? (
-                      <img src={img} alt={item.name} className="h-full w-full object-cover" />
+                      <img
+                        src={img}
+                        alt={item.name}
+                        className="h-full w-full object-cover"
+                        style={zoomedOut ? { transform: "scale(0.72)" } : undefined}
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-slate-100 text-6xl">
                         {produceEmoji[item.name] ?? "🌿"}
                       </div>
                     )}
-                    {/* Bulk select checkbox */}
-                    {bulkMode && (
-                      <div
-                        className="absolute left-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors"
-                        style={selected.has(item.name)
-                          ? { backgroundColor: "#4A7C20", borderColor: "#4A7C20" }
-                          : { backgroundColor: "rgba(0,0,0,0.25)", borderColor: "rgba(255,255,255,0.7)" }}
-                      >
-                        {selected.has(item.name) && (
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                            <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </div>
-                    )}
-                    {/* Favourite button — hidden in bulk mode */}
-                    {!bulkMode && (
-                      <button
-                        className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/40"
-                        style={{ backgroundColor: "rgba(0,0,0,0.18)" }}
-                        aria-label="Add to favourites"
-                      >
-                        <Heart size={15} className="text-white" />
-                      </button>
-                    )}
+                    <button
+                      className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/40"
+                      style={{ backgroundColor: "rgba(0,0,0,0.18)" }}
+                      aria-label="Add to favourites"
+                    >
+                      <Heart size={15} className="text-white" />
+                    </button>
                   </div>
 
                   {/* Content section — slides between info and qty panels */}
@@ -332,18 +346,20 @@ export default function BrowseProduce() {
                         </p>
                       </div>
                       <div className="mt-1 flex items-center gap-1.5">
-                        <span className="text-slate-400 text-xs">·</span>
-                        <span
-                          className="h-1.5 w-1.5 rounded-full inline-block"
-                          style={{ backgroundColor: item.dominantGrade === "A" ? "#4A7C20" : "#d97706" }}
-                        />
-                        <span className="text-xs text-slate-500">Grade {item.dominantGrade}</span>
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                          <span
+                            className="h-2 w-2 rounded-full inline-block"
+                            style={{ backgroundColor: item.dominantGrade === "A" ? "#4A7C20" : "#d97706" }}
+                          />
+                        </span>
+                        <span className="text-sm text-slate-500">Grade {item.dominantGrade}</span>
                       </div>
                       {harvestLabel && (
                         <div className="mt-1 flex items-center gap-1.5">
-                          <span className="text-slate-400 text-xs">·</span>
-                          <Wheat size={10} className="text-slate-400 shrink-0" />
-                          <p className="text-xs text-slate-400">{harvestLabel}</p>
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                            <Wheat size={14} className="text-slate-400" />
+                          </span>
+                          <p className="text-sm text-slate-400">{harvestLabel}</p>
                         </div>
                       )}
                       <div className="mt-3 border-t border-slate-100" />
@@ -353,7 +369,7 @@ export default function BrowseProduce() {
                         </p>
                         <button
                           onClick={() => setEditingQty((prev) => ({ ...prev, [item.name]: inCart?.qty ?? 1 }))}
-                          className="flex h-7 w-24 items-center justify-center rounded-full border text-xs font-semibold transition-colors hover:bg-green-50"
+                          className="flex h-7 w-24 items-center justify-center rounded-lg border text-xs font-semibold transition-colors hover:bg-green-50"
                           style={{
                             borderColor: "#4A7C20",
                             color: inCart ? "#fff" : "#4A7C20",
@@ -410,7 +426,7 @@ export default function BrowseProduce() {
                         {inCart ? (
                           <button
                             onClick={() => navigate("/buyer/cart", { state: { cart } })}
-                            className="h-7 w-24 rounded-full text-xs font-semibold text-white transition-colors"
+                            className="h-7 w-24 rounded-lg text-xs font-semibold text-white transition-colors"
                             style={{ backgroundColor: "#4A7C20" }}
                           >
                             View cart
@@ -421,7 +437,7 @@ export default function BrowseProduce() {
                             onClick={() => {
                               handleAddToCart(item.name, editingQty[item.name], pricePerKg);
                             }}
-                            className="h-7 w-24 rounded-full text-xs font-semibold text-white transition-colors disabled:opacity-40"
+                            className="h-7 w-24 rounded-lg text-xs font-semibold text-white transition-colors disabled:opacity-40"
                             style={{ backgroundColor: "#4A7C20" }}
                           >
                             Add to cart
@@ -435,41 +451,18 @@ export default function BrowseProduce() {
             })}
           </div>
           </div>
+
+          {/* Dim overlay on the produce grid while the filter bar is expanded */}
+          {expanded && (
+            <div
+              className="absolute inset-x-0 bottom-0 z-40 transition-opacity"
+              style={{ top: "152px", backgroundColor: "rgba(0,0,0,0.35)" }}
+              onClick={() => { setExpanded(false); setActiveSegment(null); }}
+            />
+          )}
         </div>
 
       </div>
-
-      {/* Bulk action bar */}
-      {bulkMode && selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-30 border-t border-slate-200 bg-white px-5 py-3 flex items-center justify-between gap-4 shadow-lg">
-          <p className="text-sm font-semibold text-slate-700">
-            {selected.size} {selected.size === 1 ? "item" : "items"} selected
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                selected.forEach((name) => {
-                  const price = producePriceMap[name] ?? 2.40;
-                  handleAddToCart(name, 50, price);
-                });
-                setBulkMode(false);
-                setSelected(new Set());
-              }}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors"
-              style={{ backgroundColor: "#4A7C20" }}
-            >
-              <ShoppingCart size={14} />
-              Add all to cart
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

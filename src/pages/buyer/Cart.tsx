@@ -4,38 +4,44 @@ import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 
 const produceImages: Record<string, string> = {
-  Tomatoes: "/tomato-front.png",
-  Onions:    "/Onion.png",
-  Potatoes:  "/Potato.png",
-  Carrots:   "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&h=400&fit=crop&auto=format",
-  Spinach:   "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600&h=400&fit=crop&auto=format",
-  Broccoli:  "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=600&h=400&fit=crop&auto=format",
-  Capsicum:  "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&h=400&fit=crop&auto=format",
-  Cucumber:  "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=600&h=400&fit=crop&auto=format",
-  Cabbage:   "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600&h=400&fit=crop&auto=format",
-  Corn:      "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=600&h=400&fit=crop&auto=format",
-  Garlic:    "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=600&h=400&fit=crop&auto=format",
+  Tomatoes:   "/Farm%20Produce/Tomato.png",
+  Onions:     "/Farm%20Produce/Onion.png",
+  Potatoes:   "/Farm%20Produce/Potato.png",
+  Carrots:    "/Farm%20Produce/Carrot.png",
+  Spinach:    "/Farm%20Produce/Spinach.png",
+  Broccoli:   "/Farm%20Produce/Brocolli.png",
+  Cucumber:   "/Farm%20Produce/Cucumber.png",
+  Cabbage:    "/Farm%20Produce/Cabbage.png",
+  Corn:       "/Farm%20Produce/Corn.png",
+  Blueberry:  "/Farm%20Produce/Blueberry.png",
+  Lemon:      "/Farm%20Produce/Lemon.png",
+  Pomegranate: "/Farm%20Produce/Pomogranate.png",
+  Capsicum:   "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&h=400&fit=crop&auto=format",
 };
 
 const produceEmoji: Record<string, string> = {
   Tomatoes: "🍅", Onions: "🧅", Potatoes: "🥔", Carrots: "🥕", Spinach: "🥬",
-  Broccoli: "🥦", Capsicum: "🫑", Cucumber: "🥒", Cabbage: "🥬", Corn: "🌽", Garlic: "🧄",
+  Broccoli: "🥦", Capsicum: "🫑", Cucumber: "🥒", Cabbage: "🥬", Corn: "🌽",
+  Blueberry: "🫐", Lemon: "🍋", Pomegranate: "🍎",
 };
 
 const produceGrade: Record<string, "A" | "B"> = {
   Tomatoes: "A", Onions: "A", Potatoes: "B", Carrots: "A", Spinach: "A",
-  Broccoli: "B", Capsicum: "B", Cucumber: "A", Cabbage: "A", Corn: "A", Garlic: "A",
+  Broccoli: "B", Capsicum: "B", Cucumber: "A", Cabbage: "A", Corn: "A",
+  Blueberry: "A", Lemon: "A", Pomegranate: "B",
 };
 
 const produceHarvest: Record<string, string> = {
   Tomatoes: "2026-07-03", Onions: "2026-07-03", Potatoes: "2026-07-05", Carrots: "2026-07-04",
   Spinach: "2026-07-06", Broccoli: "2026-07-04", Capsicum: "2026-07-06", Cucumber: "2026-07-07",
-  Cabbage: "2026-07-05", Corn: "2026-07-06", Garlic: "2026-07-03",
+  Cabbage: "2026-07-05", Corn: "2026-07-06",
+  Blueberry: "2026-07-08", Lemon: "2026-07-05", Pomegranate: "2026-07-02",
 };
 
 const produceMaxQty: Record<string, number> = {
   Tomatoes: 700, Onions: 500, Potatoes: 600, Carrots: 400, Spinach: 200,
-  Broccoli: 300, Capsicum: 250, Cucumber: 350, Cabbage: 450, Corn: 300, Garlic: 150,
+  Broccoli: 300, Capsicum: 250, Cucumber: 350, Cabbage: 450, Corn: 300,
+  Blueberry: 60, Lemon: 140, Pomegranate: 90,
 };
 
 const TODAY = new Date("2026-07-08");

@@ -23,6 +23,10 @@ export default function OrderWorkspace() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [confirmationRevealed, setConfirmationRevealed] = useState(false);
+  const [driverModalOpen, setDriverModalOpen] = useState(false);
+  const [assignedDriver, setAssignedDriver] = useState<{ name: string; vehicle: string } | null>(null);
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTimeWindow, setPickupTimeWindow] = useState("");
 
   function activeStepToWizard(s: Step): number {
     if (s === "Allocation" || s === "Confirmation") return 0;
@@ -274,25 +278,68 @@ export default function OrderWorkspace() {
 
               {/* Step 1: Schedule Pickup */}
               {wizardStep === 1 && (
-                <div>
-                  {pickupRun ? (
-                    <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-4">
+                  {/* Assign Driver CTA */}
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+                    <div>
+                      {assignedDriver ? (
+                        <>
+                          <p className="text-xs font-medium text-slate-400">Assigned Driver</p>
+                          <p className="mt-0.5 text-sm font-semibold text-slate-900">{assignedDriver.name} <span className="font-normal text-slate-400">· {assignedDriver.vehicle}</span></p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium text-slate-900">No driver assigned</p>
+                          <p className="text-xs text-slate-400">Select an available driver for this pickup run</p>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDriverModalOpen(true)}
+                      className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                    >
+                      {assignedDriver ? "Change" : "Assign Driver"}
+                    </button>
+                  </div>
+
+                  {/* Date + Time Window */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-slate-200 px-4 py-3">
+                      <p className="text-xs font-medium text-slate-400">Pickup Date</p>
+                      <input
+                        type="date"
+                        value={pickupDate}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                        className="mt-1 w-full bg-transparent text-sm font-medium text-slate-900 outline-none"
+                      />
+                    </div>
+                    <div className="rounded-xl border border-slate-200 px-4 py-3">
+                      <p className="text-xs font-medium text-slate-400">Time Window</p>
+                      <input
+                        type="text"
+                        value={pickupTimeWindow}
+                        onChange={(e) => setPickupTimeWindow(e.target.value)}
+                        placeholder="e.g. 7:00 AM – 3:00 PM"
+                        className="mt-1 w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Route map + timeline (if run exists) */}
+                  {pickupRun && (
+                    <div className="space-y-4">
                       <RouteMap
                         stops={pickupRun.stops.map((s) => ({ farmName: s.farmName, time: s.readyTime, status: s.status, produce: s.produce, quantity: s.quantity }))}
                         collectionCenter={pickupRun.collectionCenter}
                         eta={pickupRun.eta}
                         height={260}
                       />
-                      <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
-                        <PickupRunReference run={pickupRun} />
-                        <div className="min-w-[200px]">
-                          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Route order</p>
-                          <VerticalRouteTimeline run={pickupRun} />
-                        </div>
+                      <div className="min-w-[200px]">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Route order</p>
+                        <VerticalRouteTimeline run={pickupRun} />
                       </div>
                     </div>
-                  ) : (
-                    <div className="mt-4"><PickupRunReference run={undefined} /></div>
                   )}
                 </div>
               )}
@@ -389,7 +436,7 @@ export default function OrderWorkspace() {
                   } else if (wizardStep === 0 && allocationSubStep === 1) {
                     label = "Accept order"; onClick = () => { do_.schedulePickup(); setAllocationSubStep(0); setWizardStep((s) => Math.min(4, s + 1)); };
                   } else if (wizardStep === 1) {
-                    label = "Confirm Schedule"; onClick = () => { do_.advanceOrder("Collected"); setWizardStep((s) => Math.min(4, s + 1)); };
+                    label = "Confirm Schedule"; onClick = () => { if (assignedDriver && pickupDate) { do_.advanceOrder("Collected"); setWizardStep((s) => Math.min(4, s + 1)); } };
                   } else if (wizardStep === 2) {
                     label = "Mark Verified"; onClick = () => { do_.verifyQuality(); setWizardStep((s) => Math.min(4, s + 1)); };
                   } else if (wizardStep === 3) {
@@ -408,15 +455,23 @@ export default function OrderWorkspace() {
                       >
                         Notify farmers
                       </button>
-                      <button
-                        type="button"
-                        onClick={wizardStep === WIZARD_STEPS.length - 1 ? undefined : onClick}
-                        disabled={wizardStep === WIZARD_STEPS.length - 1}
-                        className={`w-[180px] rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors whitespace-nowrap text-center ${wizardStep === WIZARD_STEPS.length - 1 ? "cursor-not-allowed opacity-40" : ""}`}
-                        style={{ backgroundColor: "#095F25" }}
-                      >
-                        {label}
-                      </button>
+                      {(() => {
+                        const isScheduleStep = wizardStep === 1;
+                        const scheduleReady = !!assignedDriver && !!pickupDate;
+                        const isSettlement = wizardStep === WIZARD_STEPS.length - 1;
+                        const isDisabled = isSettlement || (isScheduleStep && !scheduleReady);
+                        return (
+                          <button
+                            type="button"
+                            onClick={isDisabled ? undefined : onClick}
+                            disabled={isDisabled}
+                            className={`w-[180px] rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors whitespace-nowrap text-center ${isDisabled ? "cursor-not-allowed opacity-40" : ""}`}
+                            style={{ backgroundColor: "#095F25" }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
@@ -437,6 +492,12 @@ export default function OrderWorkspace() {
         invoiceAmount={invoiceAmount}
         onConfirm={do_.generateInvoice}
         onClose={() => setInvoiceModalOpen(false)}
+      />
+
+      <DriverAssignModal
+        open={driverModalOpen}
+        onSelect={(driver) => { setAssignedDriver(driver); setDriverModalOpen(false); }}
+        onClose={() => setDriverModalOpen(false)}
       />
     </div>
   );
@@ -1249,6 +1310,86 @@ function ReleasePaymentModal({
         <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="button" className="btn-primary" onClick={onConfirm}>Release Payment</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MOCK_DRIVERS = [
+  { name: "Ravi Kumar",   vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "Available" },
+  { name: "Meera Singh",  vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "On Run" },
+  { name: "Arun Mehta",   vehicle: "Mini Truck KA-03-7712",     capacity: "600 kg",   status: "Available" },
+  { name: "Kavya Rao",    vehicle: "Van KA-04-1190",            capacity: "400 kg",   status: "Available" },
+  { name: "Rafiq Khan",   vehicle: "Refrigerated Van KA-02-8810", capacity: "500 kg", status: "On Run" },
+];
+
+function DriverAssignModal({
+  open,
+  onSelect,
+  onClose,
+}: {
+  open: boolean;
+  onSelect: (driver: { name: string; vehicle: string }) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center">
+      <button className="absolute inset-0 bg-slate-950/20" onClick={onClose} aria-label="Close" />
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h2 className="text-base font-semibold text-slate-900">Assign Driver</h2>
+        <p className="mt-1 text-sm text-slate-400">Select an available driver for this pickup run</p>
+
+        <div className="mt-4 space-y-2">
+          {MOCK_DRIVERS.map((d) => {
+            const isAvailable = d.status === "Available";
+            const isSelected = selected === d.name;
+            return (
+              <button
+                key={d.name}
+                type="button"
+                disabled={!isAvailable}
+                onClick={() => setSelected(d.name)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                  isSelected
+                    ? "border-green-500 bg-green-50"
+                    : isAvailable
+                      ? "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                      : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm font-semibold ${isSelected ? "text-green-800" : "text-slate-900"}`}>{d.name}</p>
+                    <p className="mt-0.5 text-xs text-slate-400">{d.vehicle} · {d.capacity}</p>
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isAvailable ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-400"}`}>
+                    {d.status}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!selected}
+            onClick={() => {
+              const d = MOCK_DRIVERS.find((x) => x.name === selected)!;
+              onSelect({ name: d.name, vehicle: d.vehicle });
+            }}
+            className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition-colors ${selected ? "opacity-100" : "opacity-40 cursor-not-allowed"}`}
+            style={{ backgroundColor: "#095F25" }}
+          >
+            Assign
+          </button>
         </div>
       </div>
     </div>

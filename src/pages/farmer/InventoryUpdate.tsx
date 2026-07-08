@@ -42,13 +42,16 @@ function CropPicker({ farmerInventory, from }: { farmerInventory: typeof mockInv
           <span className="text-sm font-medium text-slate-900">Update Inventory</span>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto bg-slate-50">
+      <div className="flex-1 overflow-y-auto bg-white">
         <div className="mx-auto max-w-[860px] space-y-4 px-4 sm:px-6 py-5 sm:py-6">
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-slate-950">Update Inventory</h1>
             <p className="mt-1 text-sm text-slate-500">Select a crop to update its committed quantity and details.</p>
           </div>
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+          <div
+            className="overflow-hidden rounded-2xl border border-slate-100 bg-white divide-y divide-slate-100"
+            style={{ boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" }}
+          >
             {farmerInventory.map((row) => (
               <Link
                 key={row.id}
@@ -103,7 +106,7 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
   const labelCls = "text-xs font-semibold uppercase tracking-wide text-slate-400";
 
   const methods = [
-    { key: "image" as const, label: "Image Capture", icon: Camera, description: "Snap a photo — we'll estimate quantity and grade." },
+    { key: "image" as const, label: "Image Capture", icon: Camera, description: "Upload photos for quantity & grade." },
     { key: "voice" as const,  label: "Voice Capture",  icon: Mic,    description: "Speak your quantity and grade aloud." },
     { key: "manual" as const, label: "Enter Manually", icon: PenLine, description: "Fill in details using the form." },
   ];
@@ -135,12 +138,15 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
       </header>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto bg-slate-50">
+      <div className="flex-1 overflow-y-auto bg-white">
         <div className="mx-auto max-w-[860px] space-y-4 sm:space-y-5 px-4 sm:px-6 py-5 sm:py-6">
 
           {/* Produce hero card */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="flex items-start gap-4 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5">
+          <div
+            className="overflow-hidden rounded-2xl border border-slate-100 bg-white"
+            style={{ boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" }}
+          >
+            <div className="flex items-start gap-4 sm:gap-5 p-5">
               {/* Emoji icon holder */}
               <div
                 className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-xl text-3xl sm:text-4xl"
@@ -184,7 +190,10 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
           </div>
 
           {/* Entry method selector */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div
+            className="overflow-hidden rounded-2xl border border-slate-100 bg-white"
+            style={{ boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" }}
+          >
             <p className="border-b border-slate-100 px-4 sm:px-5 py-3 text-sm font-semibold text-slate-950">Select a method to update inventory</p>
             {/* Three method options */}
             <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
@@ -214,10 +223,11 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
             </div>
 
             {/* Active mode content */}
+            <div className={mode ? "min-h-[280px] flex flex-col justify-center" : ""}>
             {mode === "image" && (
               <div className="px-4 sm:px-5 py-5 space-y-4">
                 {!imagesUploaded ? (
-                  <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <div className="flex flex-col items-center gap-3 text-center">
                     <div className="flex h-14 w-14 items-center justify-center rounded-xl" style={{ backgroundColor: "#F2FFEF" }}>
                       <Camera size={26} style={{ color: "#4A7C20" }} />
                     </div>
@@ -225,7 +235,7 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
                     <p className="text-xs text-slate-400 max-w-xs">Add front, side, and top views to help estimate quantity and grade.</p>
                     <button
                       type="button"
-                      className="mt-1 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                      className="mt-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                       style={{ backgroundColor: "#324D1D" }}
                       onClick={() => setImagesUploaded(true)}
                     >
@@ -300,10 +310,10 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
                 <p className="text-xs text-slate-400 max-w-xs">Say the quantity and grade — e.g. "350 kilograms, Grade A".</p>
                 <button
                   type="button"
-                  className="mt-2 flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  className="mt-2 flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "#324D1D" }}
                 >
-                  <Mic size={14} /> Start listening
+                  <Mic size={14} /> Start speaking
                 </button>
               </div>
             )}
@@ -350,6 +360,7 @@ function UpdateForm({ item, from }: { item: typeof mockInventory[0]; from: strin
                 </div>
               </>
             )}
+            </div>
 
           </div>
         </div>

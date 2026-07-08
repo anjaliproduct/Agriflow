@@ -1,5 +1,5 @@
 import type React from "react";
-import { AlertCircle, CalendarDays, CheckCircle2, Leaf, Package, SlidersHorizontal, Truck, Wallet } from "lucide-react";
+import { Box, CalendarDays, CheckCircle2, Leaf, Package, ShoppingCart, SlidersHorizontal, Truck, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppStore } from "../../store/appStore";
 import { formatDate, formatCurrency } from "../../utils/formatters";
@@ -14,6 +14,8 @@ const brand = {
   forestGreen: "#324D1D",
   yellow:      "#FED701",
   orange:      "#FE8B02",
+  blue:        "#2563EB",
+  pink:        "#EC4899",
 };
 
 const produceEmoji: Record<string, string> = {
@@ -101,22 +103,22 @@ export default function FarmerDashboard() {
   const nudges: { icon: React.ElementType; iconBg: string; iconColor: string; title: string; description: string; severity: "urgent" | "info" | "success"; href: string; actionLabel: string }[] = [];
   inventory.forEach((item) => {
     const daysUntil = Math.ceil((new Date(`${item.harvestDate}T00:00:00`).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    if (daysUntil <= 0) nudges.push({ icon: AlertCircle, iconBg: `${brand.orange}18`, iconColor: brand.orange, severity: "urgent", title: `Update ${item.produce} Stock`, description: "Harvest date has passed — update your declared quantity.", href: `/farmer/inventory/update/${item.id}`, actionLabel: "Update" });
-    else if (daysUntil === 1) nudges.push({ icon: CalendarDays, iconBg: `${brand.orange}18`, iconColor: brand.orange, severity: "urgent", title: `Confirm ${item.produce} Availability`, description: "Harvest is tomorrow — confirm your quantity is ready.", href: `/farmer/inventory/update/${item.id}`, actionLabel: "Confirm" });
-    if (item.freshnessStatus === "Watch") nudges.push({ icon: Leaf, iconBg: `${brand.orange}18`, iconColor: brand.orange, severity: "urgent", title: `Request Early Pickup — ${item.produce}`, description: "Freshness is declining and needs to move soon.", href: "/farmer/pickups", actionLabel: "Request" });
+    if (daysUntil <= 0) nudges.push({ icon: Box, iconBg: `${brand.limeGreen}26`, iconColor: "#546B07", severity: "urgent", title: `Update ${item.produce} Inventory`, description: "Harvest date has passed — update your declared quantity.", href: `/farmer/inventory/update/${item.id}`, actionLabel: "Update" });
+    else if (daysUntil === 1) nudges.push({ icon: CalendarDays, iconBg: `${brand.limeGreen}26`, iconColor: "#546B07", severity: "urgent", title: `Confirm ${item.produce} Availability`, description: "Harvest is tomorrow — confirm your quantity is ready.", href: `/farmer/inventory/update/${item.id}`, actionLabel: "Confirm" });
+    if (item.freshnessStatus === "Watch") nudges.push({ icon: Leaf, iconBg: `${brand.pink}26`, iconColor: "#9D174D", severity: "urgent", title: `Request Early Pickup — ${item.produce}`, description: "Freshness is declining and needs to move soon.", href: "/farmer/pickups", actionLabel: "Request" });
   });
-  if (pendingConfirmations > 0) nudges.push({ icon: Package, iconBg: `${brand.limeGreen}18`, iconColor: brand.forestGreen, severity: "info", title: `Review ${pendingConfirmations} Pending Order${pendingConfirmations > 1 ? "s" : ""}`, description: "Orders are waiting on your confirmation to proceed.", href: "/farmer/allocations", actionLabel: "Review" });
-  if (nextRun) nudges.push({ icon: Truck, iconBg: `${brand.limeGreen}18`, iconColor: brand.forestGreen, severity: "info", title: "Confirm Produce Ready for Pickup", description: `Scheduled for ${formatDate(nextRun.date)} at ${nextStop?.readyTime ?? nextRun.eta}.`, href: "/farmer/pickups", actionLabel: "Confirm" });
-  if (releasedPayout > 0) nudges.push({ icon: CheckCircle2, iconBg: `${brand.limeGreen}18`, iconColor: brand.limeGreen, severity: "success", title: "Payment Released", description: `${formatCurrency(releasedPayout)} has been sent to your account.`, href: "/farmer/payments", actionLabel: "View" });
+  if (pendingConfirmations > 0) nudges.push({ icon: Package, iconBg: `${brand.orange}26`, iconColor: "#8C4C01", severity: "info", title: `Review ${pendingConfirmations} Pending Order${pendingConfirmations > 1 ? "s" : ""}`, description: "Orders are waiting on your confirmation to proceed.", href: "/farmer/allocations", actionLabel: "Review" });
+  if (nextRun) nudges.push({ icon: Truck, iconBg: `${brand.pink}26`, iconColor: "#9D174D", severity: "info", title: "Confirm Produce Ready for Pickup", description: `Scheduled for ${formatDate(nextRun.date)} at ${nextStop?.readyTime ?? nextRun.eta}.`, href: "/farmer/pickups", actionLabel: "Confirm" });
+  if (releasedPayout > 0) nudges.push({ icon: CheckCircle2, iconBg: `${brand.blue}26`, iconColor: "#1E3A8A", severity: "success", title: "Payment Released", description: `${formatCurrency(releasedPayout)} has been sent to your account.`, href: "/farmer/payments", actionLabel: "View" });
   nudges.sort((a, b) => (a.severity === "urgent" ? -1 : b.severity === "urgent" ? 1 : 0));
 
   const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
   const metrics = [
-    { icon: Leaf,    iconBg: brand.limeGreen,  iconColor: "#fff",             label: "Committed Inventory",  value: `${totalDeclared} kg`,                sub: `${totalAvailable} kg available`,                to: "/farmer/inventory" },
-    { icon: Package, iconBg: brand.orange,      iconColor: "#fff",             label: "Allocated Orders",    value: String(pendingConfirmations || 2),     sub: "awaiting confirmation",                               to: "/farmer/allocations" },
-    { icon: Truck,   iconBg: brand.yellow,      iconColor: brand.forestGreen,  label: "Pickups Scheduled",   value: String(upcomingPickupsCount || 3),     sub: "scheduled this week",                                 to: "/farmer/pickups" },
-    { icon: Wallet,  iconBg: brand.forestGreen, iconColor: "#fff",             label: "Earned this month",   value: formatCurrency(releasedPayout || 230), sub: `${formatCurrency(pendingPayoutAmount || 180)} pending`, to: "/farmer/payments" },
+    { icon: Box,     iconBg: `${brand.limeGreen}26`, iconColor: "#546B07", label: "Committed Inventory",  value: `${totalDeclared} kg`,                sub: `${totalAvailable} kg available`,                to: "/farmer/inventory" },
+    { icon: ShoppingCart, iconBg: `${brand.orange}26`, iconColor: "#8C4C01", label: "Allocated Orders",    value: String(pendingConfirmations || 2),     sub: "awaiting confirmation",                               to: "/farmer/allocations" },
+    { icon: Truck,   iconBg: `${brand.pink}26`,      iconColor: "#9D174D", label: "Pickups Scheduled",   value: String(upcomingPickupsCount || 3),     sub: "scheduled this week",                                 to: "/farmer/pickups" },
+    { icon: Wallet,  iconBg: `${brand.blue}26`,      iconColor: "#1E3A8A", label: "Earned this month",   value: formatCurrency(releasedPayout || 230), sub: `${formatCurrency(pendingPayoutAmount || 180)} pending`, to: "/farmer/payments" },
   ];
 
   const tableRows = [
@@ -134,13 +136,6 @@ export default function FarmerDashboard() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const keyHighlight = nextRun
-    ? `Your next pickup is ${formatDate(nextRun.date)} at ${nextStop?.readyTime ?? nextRun.eta}.`
-    : pendingConfirmations > 0
-      ? `You have ${pendingConfirmations} order${pendingConfirmations > 1 ? "s" : ""} awaiting your confirmation.`
-      : releasedPayout > 0
-        ? `${formatCurrency(releasedPayout)} has been sent to your account.`
-        : `All caught up — no actions needed today.`;
 
   return (
     <div className="-m-4 sm:-m-6 min-h-full p-4 sm:p-6" style={{ backgroundColor: "#F7F7F7" }}>
@@ -149,8 +144,7 @@ export default function FarmerDashboard() {
         {/* Airbnb-style welcome header */}
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{today}</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-slate-900">{greeting}, {FARMER_NAME.split(" ")[0]} 👋</h1>
-          <p className="mt-1 text-sm text-slate-500">{keyHighlight}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-slate-900">{greeting}, {FARMER_NAME} 👋</h1>
         </div>
 
         {/* Layer 1 — Metric cards */}
@@ -162,13 +156,15 @@ export default function FarmerDashboard() {
               className="rounded-2xl bg-white px-5 py-5 transition-all hover:opacity-90"
               style={cardShadow}
             >
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full mb-3"
-                style={{ backgroundColor: iconBg, color: iconColor }}
-              >
-                <Icon size={14} />
-              </span>
-              <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                  style={{ backgroundColor: iconBg, color: iconColor }}
+                >
+                  <Icon size={14} />
+                </span>
+                <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+              </div>
               <p className="mt-1.5 text-sm font-semibold text-slate-700">{label}</p>
               <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
             </Link>
@@ -182,30 +178,36 @@ export default function FarmerDashboard() {
             <div className="flex flex-col rounded-2xl bg-white p-5 space-y-3" style={cardShadow}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-900">Actions</p>
-                <AlertCircle size={15} className="text-slate-400" />
               </div>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1">
                 {nudges.length === 0 ? (
                   <p className="py-6 text-center text-sm text-slate-400">All caught up — no actions needed.</p>
                 ) : (
-                  nudges.map((n, i) => {
-                    const Icon = n.icon;
-                    return (
-                      <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-100 px-4 py-3">
-                        <Icon size={16} className="shrink-0 text-slate-400" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-900">{n.title}</p>
-                          <p className="mt-0.5 text-xs text-slate-400 leading-snug line-clamp-2">{n.description}</p>
+                  <div className="divide-y divide-slate-100">
+                    {nudges.map((n, i) => {
+                      const Icon = n.icon;
+                      return (
+                        <div key={i} className="flex items-center gap-3 py-3.5">
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                            style={{ backgroundColor: n.iconBg, color: n.iconColor }}
+                          >
+                            <Icon size={16} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-900">{n.title}</p>
+                            <p className="mt-0.5 text-xs text-slate-400 leading-snug line-clamp-2">{n.description}</p>
+                          </div>
+                          <Link
+                            to={n.href}
+                            className="shrink-0 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                          >
+                            {n.actionLabel}
+                          </Link>
                         </div>
-                        <Link
-                          to={n.href}
-                          className="shrink-0 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                        >
-                          {n.actionLabel}
-                        </Link>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
@@ -214,7 +216,6 @@ export default function FarmerDashboard() {
             <div className="rounded-2xl bg-white p-5 space-y-3" style={cardShadow}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-900">Upcoming Pickups</p>
-                <Truck size={15} className="text-slate-400" />
               </div>
               {myRuns.length === 0 ? (
                 <p className="py-6 text-center text-sm text-slate-400">No pickups scheduled.</p>
@@ -255,7 +256,7 @@ export default function FarmerDashboard() {
         <div className="rounded-2xl bg-white overflow-hidden" style={cardShadow}>
 
             {/* Heading row */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4">
+            <div className="flex items-center justify-between px-6 pt-5 pb-5">
               <p className="text-sm font-semibold text-slate-900">Crop Inventory</p>
               <div className="flex items-center gap-2">
                 <button className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
@@ -308,7 +309,7 @@ export default function FarmerDashboard() {
             </div>
 
             {/* Desktop: full table */}
-            <div className="hidden sm:block border border-slate-200 overflow-hidden rounded-[12px] m-[10px]">
+            <div className="hidden sm:block border border-slate-200 overflow-hidden rounded-[12px] mx-[10px] mb-[10px]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50">

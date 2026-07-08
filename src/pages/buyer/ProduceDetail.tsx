@@ -20,7 +20,10 @@ export default function ProduceDetail() {
     <div className="space-y-5">
       <PageHeader title={produceName} description="Estimated availability, subject to collection center verification." />
       <div className="grid gap-5 lg:grid-cols-[1fr_420px]">
-        <section className="card p-5">
+        <section
+          className="rounded-2xl border border-slate-100 bg-white p-6"
+          style={{ boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" }}
+        >
           <div className="grid gap-4 md:grid-cols-3">
             <Info label="Available to promise" value={`${available} kg`} />
             <Info label="Fulfillment confidence" value={confidence} />
@@ -28,7 +31,10 @@ export default function ProduceDetail() {
           </div>
           <div className="mt-5 rounded-md bg-amber-50 p-4 text-sm text-amber-800">This is estimated availability, not guaranteed inventory. Final quantity and grade will be confirmed after collection center verification.</div>
         </section>
-        <section className="card p-5">
+        <section
+          className="rounded-2xl border border-slate-100 bg-white p-6"
+          style={{ boxShadow: "0 2px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.03)" }}
+        >
           <h3 className="text-lg font-semibold text-slate-950">Place bulk order</h3>
           <div className="mt-4 space-y-4">
             <label className="block"><span className="label">Required quantity</span><input className="input mt-1" type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} /></label>
