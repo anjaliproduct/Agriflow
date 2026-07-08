@@ -1,4 +1,4 @@
-import { AlertCircle, Check, CheckCircle2, ChevronRight, Clock, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Scale, ShoppingBag, Sparkles, Sprout, Store, Truck, User, Wallet, Warehouse } from "lucide-react";
+import { AlertCircle, BadgePercent, BarChart3, Check, CheckCircle2, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Scale, ShoppingBag, Sparkles, Sprout, Store, Truck, User, Users, Wallet, Warehouse } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
@@ -410,8 +410,9 @@ export default function OrderWorkspace() {
                       </button>
                       <button
                         type="button"
-                        onClick={onClick}
-                        className="w-[180px] rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors whitespace-nowrap text-center"
+                        onClick={wizardStep === WIZARD_STEPS.length - 1 ? undefined : onClick}
+                        disabled={wizardStep === WIZARD_STEPS.length - 1}
+                        className={`w-[180px] rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors whitespace-nowrap text-center ${wizardStep === WIZARD_STEPS.length - 1 ? "cursor-not-allowed opacity-40" : ""}`}
                         style={{ backgroundColor: "#095F25" }}
                       >
                         {label}
@@ -1079,27 +1080,23 @@ function InvoiceCard({
 
         {/* Sub-section 1: Buyer's Invoice */}
         <div>
-          <p className="mb-3 text-sm font-semibold text-slate-500">Buyer's Invoice</p>
-          <div className="grid grid-cols-3 gap-y-4">
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Invoice</p>
-              {order.invoiceStatus === "Generated" ? (
-                <button type="button" onClick={onOpenInvoice} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
-                  <FileText size={12} /> INV-{order.id}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onOpenInvoice}
-                  className="mt-1 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  Create invoice
-                </button>
-              )}
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-base font-semibold text-slate-700">Buyer's Invoice</p>
+            <button type="button" onClick={onOpenInvoice} className="w-[120px] rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors text-center">
+              Create Invoice
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-y-5">
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-slate-400">Order Value</p>
               <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrency(invoiceAmount)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Order Status</p>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                <p className="text-sm text-slate-900">Delivered</p>
+              </div>
             </div>
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-slate-400">Payment Status</p>
@@ -1108,44 +1105,48 @@ function InvoiceCard({
                 <p className="text-sm text-slate-900">{buyerPaymentStatus}</p>
               </div>
             </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Invoice</p>
+              {order.invoiceStatus === "Generated" ? (
+                <button type="button" onClick={onOpenInvoice} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
+                  <FileText size={12} /> INV-{order.id}
+                </button>
+              ) : (
+                <p className="mt-1 text-sm text-slate-400">—</p>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Sub-section 2: Farmer's Payout */}
         <div className="border-t border-slate-100 pt-5">
-          <p className="mb-3 text-sm font-semibold text-slate-500">Farmer's Payout</p>
-          <div className="grid grid-cols-3 gap-y-4">
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Payment</p>
-              <button
-                type="button"
-                onClick={onReleasePayment}
-                className="mt-1 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                Pay farmers
-              </button>
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-base font-semibold text-slate-700">Farmer's Payout</p>
+            <button
+              type="button"
+              disabled={order.invoiceStatus !== "Generated"}
+              onClick={() => setDetailsOpen(true)}
+              className={`w-[120px] rounded-lg border py-1.5 text-xs font-medium transition-colors text-center ${order.invoiceStatus === "Generated" ? "border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer" : "border-slate-200 text-slate-300 cursor-not-allowed"}`}
+            >
+              Make Payment
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-y-5">
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-slate-400">Net Payout</p>
-              <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrency(totalNet)}</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{order.invoiceStatus === "Generated" ? formatCurrency(totalNet) : "—"}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-400">Allocated Farmers</p>
+              <p className="mt-1 text-sm text-slate-900">5</p>
             </div>
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-slate-400">Coop Fee</p>
-              <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalCoopFee)}</p>
+              <p className="mt-1 text-sm text-slate-900">{order.invoiceStatus === "Generated" ? formatCurrency(totalCoopFee) : "—"}</p>
             </div>
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-slate-400">Logistics</p>
-              <p className="mt-1 text-sm text-slate-900">{formatCurrency(totalLogistics)}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Farmers</p>
-              <p className="mt-1 text-sm text-slate-900">{farmerRows.length} farmers</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Breakdown</p>
-              <button type="button" onClick={() => setDetailsOpen(true)} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
-                <FileText size={12} /> View details
-              </button>
+              <p className="mt-1 text-sm text-slate-900">{order.invoiceStatus === "Generated" ? formatCurrency(totalLogistics) : "—"}</p>
             </div>
           </div>
         </div>
