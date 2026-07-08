@@ -1,6 +1,6 @@
-import { CheckSquare, ChevronRight, Heart, Minus, Plus, Search, ShoppingCart, Square, Wheat, X } from "lucide-react";
+import { ArrowUpDown, CheckSquare, ChevronLeft, ChevronRight, Heart, Search, ShoppingCart, Square, Wheat } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/appStore";
 
 const produceImages: Record<string, string> = {
@@ -61,192 +61,18 @@ type ProduceItem = {
   dominantGrade: "A" | "B"; confidence: "High" | "Medium" | "Low";
 };
 
-function SelectQtyDrawer({
-  produce,
-  onClose,
-  cart,
-  onAddToCart,
-  onAddToWishlist,
-}: {
-  produce: ProduceItem;
-  onClose: () => void;
-  cart: CartItem[];
-  onAddToCart: (name: string, qty: number, pricePerKg: number) => void;
-  onAddToWishlist: (name: string) => void;
-}) {
-  const [qty, setQty] = useState(50);
-  const pricePerKg = producePriceMap[produce.name] ?? 2.40;
-  const img = produceImages[produce.name];
-  const total = (qty * pricePerKg).toFixed(2);
-  const alreadyInCart = cart.find((c) => c.name === produce.name);
-
-  const cartTotal = cart.reduce((sum, c) => sum + c.qty * c.pricePerKg, 0);
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-slate-950/20"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <aside className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl">
-
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Select quantity</h2>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto">
-
-          {/* Produce hero */}
-          <div className="px-5 py-4">
-            <div className="flex gap-4 items-center">
-              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-100">
-                {img ? (
-                  <img src={img} alt={produce.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-slate-100 text-3xl">
-                    {produceEmoji[produce.name] ?? "🌿"}
-                  </div>
-                )}
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-950">{produce.name}</h3>
-                <div className="mt-0.5 flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full shrink-0"
-                    style={{ backgroundColor: produce.dominantGrade === "A" ? "#4A7C20" : "#d97706" }}
-                  />
-                  <p className="text-xs text-slate-500 font-medium">Grade {produce.dominantGrade}</p>
-                  <span className="text-slate-300">·</span>
-                  <p className="text-xs text-slate-400">{produce.available} kg available</p>
-                </div>
-                <p className="mt-1 text-sm font-semibold text-slate-700">
-                  ${pricePerKg.toFixed(2)}<span className="text-xs font-normal text-slate-400">/kg</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Quantity selector */}
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Quantity (kg)</p>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setQty((q) => Math.max(1, q - 10))}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  <Minus size={14} />
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={produce.available}
-                  value={qty}
-                  onChange={(e) => setQty(Math.max(1, Math.min(produce.available, Number(e.target.value))))}
-                  className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-center text-base font-semibold text-slate-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                />
-                <button
-                  onClick={() => setQty((q) => Math.min(produce.available, q + 10))}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  <Plus size={14} />
-                </button>
-                <p className="text-xs text-slate-400">kg</p>
-              </div>
-            </div>
-
-            {/* Price preview */}
-            <div className="mt-4 flex items-center justify-between rounded-xl px-4 py-3" style={{ backgroundColor: "#F7FFF3" }}>
-              <p className="text-sm text-slate-600">{qty} kg × ${pricePerKg.toFixed(2)}/kg</p>
-              <p className="text-base font-bold text-slate-900">${total}</p>
-            </div>
-
-            {/* CTAs */}
-            <div className="mt-4 flex flex-col gap-2">
-              <button
-                onClick={() => { onAddToCart(produce.name, qty, pricePerKg); }}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-colors"
-                style={{ backgroundColor: alreadyInCart ? "#5a9a2a" : "#4A7C20" }}
-              >
-                <ShoppingCart size={15} />
-                {alreadyInCart ? "Update cart" : "Add to cart"}
-              </button>
-              <button
-                onClick={() => onAddToWishlist(produce.name)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                <Heart size={15} />
-                Add to wishlist
-              </button>
-            </div>
-          </div>
-
-          {/* Cart summary */}
-          {cart.length > 0 && (
-            <div className="border-t border-slate-100 px-5 py-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Cart ({cart.length} {cart.length === 1 ? "item" : "items"})
-              </p>
-              <div className="flex flex-col gap-2">
-                {cart.map((c) => {
-                  const cImg = produceImages[c.name];
-                  return (
-                    <div key={c.name} className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-slate-100">
-                          {cImg ? (
-                            <img src={cImg} alt={c.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full items-center justify-center bg-slate-100 text-base">
-                              {produceEmoji[c.name] ?? "🌿"}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">{c.name}</p>
-                          <p className="text-xs text-slate-400">{c.qty} kg</p>
-                        </div>
-                      </div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        ${(c.qty * c.pricePerKg).toFixed(2)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Total */}
-              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                <p className="text-sm font-semibold text-slate-600">Total</p>
-                <p className="text-base font-bold text-slate-900">${cartTotal.toFixed(2)}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </aside>
-    </>
-  );
-}
-
 export default function BrowseProduce() {
+  const navigate = useNavigate();
   const { inventory, farmers } = useAppStore();
   const [search, setSearch]           = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
   const [minQty, setMinQty]           = useState("");
   const [deliveryBy, setDeliveryBy]   = useState("2026-07-10");
-  const [drawerProduce, setDrawerProduce] = useState<ProduceItem | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editingQty, setEditingQty] = useState<Record<string, number>>({});
+  const [produceType, setProduceType] = useState("");
 
   const storeProduce = STORE_PRODUCE.map((name) => {
     const items = inventory.filter((item) => item.produce === name);
@@ -267,10 +93,19 @@ export default function BrowseProduce() {
     return { name, available, farmCount, earliestHarvest, dominantGrade, confidence };
   });
 
+  const LEAFY = ["Spinach", "Cabbage"];
+  const ROOT = ["Potatoes", "Carrots", "Garlic", "Onions"];
+  const FRUIT_VEG = ["Tomatoes", "Capsicum", "Cucumber", "Corn"];
+  const BRASSICA = ["Broccoli", "Cabbage"];
+
   const allProduce = [...storeProduce, ...EXTRA_PRODUCE].filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (gradeFilter && item.dominantGrade !== gradeFilter) return false;
     if (minQty && item.available < Number(minQty)) return false;
+    if (produceType === "leafy" && !LEAFY.includes(item.name)) return false;
+    if (produceType === "root" && !ROOT.includes(item.name)) return false;
+    if (produceType === "fruit_veg" && !FRUIT_VEG.includes(item.name)) return false;
+    if (produceType === "brassica" && !BRASSICA.includes(item.name)) return false;
     return true;
   });
 
@@ -294,23 +129,7 @@ export default function BrowseProduce() {
       {/* Linear-style header */}
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex h-11 items-center justify-between gap-2 px-3 sm:px-4">
-          <div className="flex items-center gap-2">
-            <Link to="/buyer/dashboard" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
-              Dashboard
-            </Link>
-            <ChevronRight size={13} className="shrink-0 text-slate-300" />
-            <span className="text-sm font-medium text-slate-900">Browse Produce</span>
-          </div>
-          <button
-            onClick={() => { setBulkMode((v) => !v); setSelected(new Set()); }}
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
-            style={bulkMode
-              ? { borderColor: "#4A7C20", color: "#4A7C20", backgroundColor: "#F2FFEF" }
-              : { borderColor: "#e2e8f0", color: "#64748b" }}
-          >
-            {bulkMode ? <CheckSquare size={13} /> : <Square size={13} />}
-            {bulkMode ? "Cancel" : "Select multiple"}
-          </button>
+          <span className="text-sm font-medium text-slate-900">Browse Produce</span>
         </div>
       </header>
 
@@ -318,39 +137,67 @@ export default function BrowseProduce() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Left filter sidebar */}
-        <aside className="hidden md:flex w-[260px] shrink-0 flex-col gap-5 border-r border-slate-200 bg-white px-4 py-5">
+        <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-slate-200 bg-white px-5 py-6 gap-6">
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Search</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Produce type</p>
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
-              <input className="input pl-9 text-sm" placeholder="Search produce" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <select
+                className="input text-sm w-full appearance-none"
+                style={{ borderRadius: "8px", paddingRight: "2rem" }}
+                value={produceType}
+                onChange={(e) => setProduceType(e.target.value)}
+              >
+                <option value="">All types</option>
+                <option value="leafy">Leafy greens</option>
+                <option value="root">Root vegetables</option>
+                <option value="fruit_veg">Fruit vegetables</option>
+                <option value="brassica">Brassicas</option>
+              </select>
+              <ChevronRight size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400" />
             </div>
           </div>
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Grade</p>
-            <select className="input text-sm" value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}>
-              <option value="">Any grade</option>
-              <option value="A">Grade A</option>
-              <option value="B">Grade B</option>
-            </select>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Grade</p>
+            <div className="relative">
+              <select
+                className="input text-sm w-full appearance-none"
+                style={{ borderRadius: "8px", paddingRight: "2rem" }}
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+              >
+                <option value="">Any grade</option>
+                <option value="A">Grade A</option>
+                <option value="B">Grade B</option>
+              </select>
+              <ChevronRight size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400" />
+            </div>
           </div>
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Min quantity</p>
-            <select className="input text-sm" value={minQty} onChange={(e) => setMinQty(e.target.value)}>
-              <option value="">No minimum</option>
-              <option value="100">100 kg+</option>
-              <option value="300">300 kg+</option>
-              <option value="500">500 kg+</option>
-            </select>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Min quantity</p>
+            <input
+              type="text"
+              inputMode="numeric"
+              className="input text-sm w-full"
+              style={{ borderRadius: "12px" }}
+              placeholder="e.g. 100"
+              value={minQty}
+              onChange={(e) => setMinQty(e.target.value.replace(/\D/g, ""))}
+            />
           </div>
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Delivery by</p>
-            <input className="input text-sm" type="date" value={deliveryBy} onChange={(e) => setDeliveryBy(e.target.value)} />
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Delivery by</p>
+            <input
+              className="input text-sm w-full"
+              style={{ borderRadius: "12px" }}
+              type="date"
+              value={deliveryBy}
+              onChange={(e) => setDeliveryBy(e.target.value)}
+            />
           </div>
-          {(search || gradeFilter || minQty) && (
+          {(gradeFilter || minQty || produceType) && (
             <button
               className="text-xs font-medium text-slate-400 hover:text-slate-700 text-left"
-              onClick={() => { setSearch(""); setGradeFilter(""); setMinQty(""); }}
+              onClick={() => { setGradeFilter(""); setMinQty(""); setProduceType(""); }}
             >
               Clear filters
             </button>
@@ -358,7 +205,55 @@ export default function BrowseProduce() {
         </aside>
 
         {/* Cards area */}
-        <div className="flex-1 overflow-y-auto bg-slate-50 px-5 py-5">
+        <div className="flex flex-col flex-1 overflow-hidden">
+
+          {/* Catalogue subheader */}
+          <div className="flex h-[72px] shrink-0 items-center gap-3 px-5" style={{ backgroundColor: "#f8f8f8", boxShadow: "0 1px 12px rgba(0,0,0,0.07)" }}>
+            {/* Left: Select multiple */}
+            <button
+              onClick={() => { setBulkMode((v) => !v); setSelected(new Set()); }}
+              className="flex h-9 items-center gap-1.5 border px-3 text-xs font-semibold transition-colors shrink-0"
+              style={bulkMode
+                ? { borderRadius: "24px", borderColor: "#4A7C20", color: "#4A7C20", backgroundColor: "#F2FFEF" }
+                : { borderRadius: "24px", borderColor: "#e2e8f0", color: "#64748b", backgroundColor: "#ffffff" }}
+            >
+              {bulkMode ? <CheckSquare size={13} /> : <Square size={13} />}
+              {bulkMode ? "Cancel" : "Select multiple"}
+            </button>
+
+            {/* Center: Search + Sort */}
+            <div className="flex items-center gap-2 mx-auto">
+              <div className="relative w-[360px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  className="input pl-9 py-2 text-sm w-full"
+                  style={{ borderRadius: "24px" }}
+                  placeholder="Search produce"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <button className="flex h-9 w-9 items-center justify-center border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors shrink-0 rounded-full">
+                <ArrowUpDown size={15} />
+              </button>
+            </div>
+
+            {/* Right: Cart */}
+            <button
+              onClick={() => navigate("/buyer/cart", { state: { cart } })}
+              className="relative flex h-9 items-center gap-1.5 border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors shrink-0 rounded-full"
+            >
+              <ShoppingCart size={13} />
+              Cart
+              {cart.length > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#4A7C20" }}>
+                  {cart.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto bg-white px-5 py-5">
           <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
             {allProduce.map((item) => {
               const img = produceImages[item.name];
@@ -420,59 +315,125 @@ export default function BrowseProduce() {
                     )}
                   </div>
 
-                  {/* Content section — white card lifting over image */}
+                  {/* Content section — slides between info and qty panels */}
                   <div
-                    className="relative -mt-3 flex flex-1 flex-col bg-white px-3 pb-3 pt-3"
+                    className="relative -mt-3 overflow-hidden bg-white"
                     style={{ borderRadius: "12px" }}
                   >
-                    {/* 1. Name + Quantity — hero row */}
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="text-xl font-bold text-slate-950">{item.name}</h3>
-                      <p className="shrink-0 text-base font-bold text-slate-800">
-                        {item.available} <span className="text-sm font-normal text-slate-400">kg</span>
-                      </p>
-                    </div>
-
-                    {/* 2. Grade dot — secondary row */}
-                    <div className="mt-1.5">
-                      <span
-                        className="h-2 w-2 rounded-full shrink-0 inline-block mr-1.5"
-                        style={{ backgroundColor: item.dominantGrade === "A" ? "#4A7C20" : "#d97706" }}
-                      />
-                      <span className="text-xs text-slate-500 font-medium">Grade {item.dominantGrade}</span>
-                    </div>
-
-                    {/* 3. Harvest — tertiary row */}
-                    {harvestLabel && (
-                      <div className="mt-1 flex items-center gap-1">
-                        <Wheat size={11} className="text-slate-400 shrink-0" />
-                        <p className="text-xs text-slate-400">{harvestLabel}</p>
+                    {/* Info panel */}
+                    <div
+                      className="flex flex-col px-3 pb-3 pt-3 transition-transform duration-300 ease-in-out"
+                      style={{ transform: editingQty[item.name] !== undefined ? "translateX(-100%)" : "translateX(0)" }}
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3 className="text-xl font-bold text-slate-950">{item.name}</h3>
+                        <p className="shrink-0 text-base font-bold text-slate-800">
+                          {item.available} <span className="text-sm font-normal text-slate-400">kg</span>
+                        </p>
                       </div>
-                    )}
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="text-slate-400 text-xs">·</span>
+                        <span
+                          className="h-1.5 w-1.5 rounded-full inline-block"
+                          style={{ backgroundColor: item.dominantGrade === "A" ? "#4A7C20" : "#d97706" }}
+                        />
+                        <span className="text-xs text-slate-500">Grade {item.dominantGrade}</span>
+                      </div>
+                      {harvestLabel && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="text-slate-400 text-xs">·</span>
+                          <Wheat size={10} className="text-slate-400 shrink-0" />
+                          <p className="text-xs text-slate-400">{harvestLabel}</p>
+                        </div>
+                      )}
+                      <div className="mt-3 border-t border-slate-100" />
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <p className="text-base font-bold text-slate-950">
+                          ${pricePerKg.toFixed(2)}<span className="text-xs font-medium text-slate-400">/kg</span>
+                        </p>
+                        <button
+                          onClick={() => setEditingQty((prev) => ({ ...prev, [item.name]: inCart?.qty ?? 1 }))}
+                          className="flex h-7 w-24 items-center justify-center rounded-full border text-xs font-semibold transition-colors hover:bg-green-50"
+                          style={{
+                            borderColor: "#4A7C20",
+                            color: inCart ? "#fff" : "#4A7C20",
+                            backgroundColor: inCart ? "#4A7C20" : "transparent",
+                          }}
+                        >
+                          {inCart ? `${inCart.qty} kg` : "Select Qty"}
+                        </button>
+                      </div>
+                    </div>
 
-                    <div className="mt-3 border-t border-slate-100" />
+                    {/* Qty panel — slides in from right */}
+                    <div
+                      className="absolute inset-0 flex flex-col px-3 pb-3 pt-3 bg-white transition-transform duration-300 ease-in-out"
+                      style={{ transform: editingQty[item.name] !== undefined ? "translateX(0)" : "translateX(100%)" }}
+                    >
+                      {/* Header row */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <button
+                          onClick={() => setEditingQty((prev) => { const n = { ...prev }; delete n[item.name]; return n; })}
+                          className="text-slate-500 hover:text-slate-800 transition-colors shrink-0"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <p className="text-base font-bold text-slate-900">Select Qty</p>
+                      </div>
 
-                    {/* 4. Price + CTA */}
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <p className="text-base font-bold text-slate-950">
-                        ${pricePerKg.toFixed(2)}<span className="text-xs font-medium text-slate-400">/kg</span>
-                      </p>
-                      <button
-                        onClick={() => setDrawerProduce(item)}
-                        className="flex items-center justify-center rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors hover:bg-green-50"
-                        style={{
-                          borderColor: inCart ? "#4A7C20" : "#4A7C20",
-                          color: inCart ? "#fff" : "#4A7C20",
-                          backgroundColor: inCart ? "#4A7C20" : "transparent",
-                        }}
-                      >
-                        {inCart ? `${inCart.qty} kg` : "Select Qty"}
-                      </button>
+                      {/* Input row */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Enter value"
+                          value={editingQty[item.name] || ""}
+                          onChange={(e) => {
+                            const v = Number(e.target.value.replace(/\D/g, ""));
+                            setEditingQty((prev) => ({ ...prev, [item.name]: Math.min(item.available, v) }));
+                          }}
+                          className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                        />
+                        <span className="text-sm text-slate-500 font-medium shrink-0">kg</span>
+                      </div>
+
+                      <div className="mt-3 border-t border-slate-100" />
+
+                      {/* Total + Add to cart */}
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-700">
+                          Total:{" "}
+                          <span className="text-slate-950">
+                            {editingQty[item.name] ? `$${(editingQty[item.name] * pricePerKg).toFixed(2)}` : "—"}
+                          </span>
+                        </p>
+                        {inCart ? (
+                          <button
+                            onClick={() => navigate("/buyer/cart", { state: { cart } })}
+                            className="h-7 w-24 rounded-full text-xs font-semibold text-white transition-colors"
+                            style={{ backgroundColor: "#4A7C20" }}
+                          >
+                            View cart
+                          </button>
+                        ) : (
+                          <button
+                            disabled={!editingQty[item.name]}
+                            onClick={() => {
+                              handleAddToCart(item.name, editingQty[item.name], pricePerKg);
+                            }}
+                            className="h-7 w-24 rounded-full text-xs font-semibold text-white transition-colors disabled:opacity-40"
+                            style={{ backgroundColor: "#4A7C20" }}
+                          >
+                            Add to cart
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
 
@@ -510,21 +471,6 @@ export default function BrowseProduce() {
         </div>
       )}
 
-      {/* Side drawer */}
-      {drawerProduce && (
-        <SelectQtyDrawer
-          produce={drawerProduce}
-          onClose={() => setDrawerProduce(null)}
-          cart={cart}
-          onAddToCart={(name, qty, pricePerKg) => {
-            handleAddToCart(name, qty, pricePerKg);
-            setDrawerProduce(null);
-          }}
-          onAddToWishlist={(name) => {
-            handleAddToWishlist(name);
-          }}
-        />
-      )}
     </div>
   );
 }

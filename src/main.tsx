@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import AppShell from "./components/AppShell";
 import BuyerDashboard from "./pages/buyer/BuyerDashboard";
 import BrowseProduce from "./pages/buyer/BrowseProduce";
+import Cart from "./pages/buyer/Cart";
 import BuyerInvoices from "./pages/buyer/BuyerInvoices";
 import BuyerOrders from "./pages/buyer/BuyerOrders";
 import OrderReview from "./pages/buyer/OrderReview";
@@ -45,6 +46,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="manager/buyers" element={<Buyers />} />
           <Route path="buyer/dashboard" element={<BuyerDashboard />} />
           <Route path="buyer/produce" element={<BrowseProduce />} />
+          <Route path="buyer/cart" element={<Cart />} />
           <Route path="buyer/produce/:produceName" element={<ProduceDetail />} />
           <Route path="buyer/review" element={<OrderReview />} />
           <Route path="buyer/orders" element={<BuyerOrders />} />
