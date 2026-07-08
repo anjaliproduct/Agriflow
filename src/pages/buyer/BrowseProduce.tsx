@@ -177,10 +177,10 @@ export default function BrowseProduce() {
         {/* Cards area */}
         <div className="relative flex flex-col flex-1 overflow-hidden">
 
-          {/* Catalogue subheader — grows 40px top + 40px bottom when expanded */}
+          {/* Catalogue subheader — fixed height; expanded pill overlays instead of pushing the grid down */}
           <div
-            className="relative z-50 flex shrink-0 items-center justify-center bg-white px-5 transition-[height] duration-200"
-            style={{ height: expanded ? "152px" : "72px", boxShadow: "0 1px 12px rgba(0,0,0,0.07)" }}
+            className="relative z-50 flex h-[72px] shrink-0 items-center justify-center bg-white px-5"
+            style={{ boxShadow: "0 1px 12px rgba(0,0,0,0.07)" }}
           >
             <div ref={filterBarRef} className="flex items-center gap-2">
               {!expanded ? (
@@ -199,7 +199,11 @@ export default function BrowseProduce() {
                   </span>
                 </button>
               ) : (
-                /* Expanded — centered within the now-taller subheader */
+                /* Expanded — a taller white panel overlays the header (40px extra top + bottom) without pushing the grid down */
+                <div
+                  className="absolute inset-x-0 top-0 z-[60] flex items-center justify-center bg-white"
+                  style={{ height: "152px", boxShadow: "0 1px 12px rgba(0,0,0,0.07)" }}
+                >
                 <div
                   className="flex items-center rounded-full border border-slate-200 bg-white p-2 shadow-xl"
                   style={{ minWidth: "560px" }}
@@ -273,6 +277,7 @@ export default function BrowseProduce() {
                   >
                     <Search size={17} />
                   </button>
+                </div>
                 </div>
               )}
 

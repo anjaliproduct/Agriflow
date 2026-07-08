@@ -2,7 +2,7 @@ import { Outlet, NavLink } from "react-router";
 import { useState } from "react";
 import { BarChart3, Bell, ClipboardList, CreditCard, LayoutDashboard, Package, Route, Receipt, ShoppingBasket, Sprout, Truck, Users } from "lucide-react";
 import NotificationPanel from "./NotificationPanel";
-import Sidebar from "./Sidebar";
+import Sidebar, { ENABLED_HREFS } from "./Sidebar";
 import { useAppStore } from "../store/appStore";
 
 const bottomNav = {
@@ -61,17 +61,33 @@ export default function AppShell() {
           <span>Alerts</span>
           {notice && <span className="absolute top-2 right-1/2 ml-3 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#FE8B02" }} />}
         </button>
-        {tabs.map(([label, href, Icon]) => (
-          <NavLink
-            key={href}
-            to={href}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
-            style={({ isActive }) => ({ color: isActive ? "#99C30C" : "#64748b" })}
-          >
-            <Icon size={20} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+        {tabs.map(([label, href, Icon]) => {
+          const isLocked = !ENABLED_HREFS[role].includes(href);
+          if (isLocked) {
+            return (
+              <div
+                key={href}
+                title={`${label} — not available in this prototype`}
+                className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
+                style={{ color: "#cbd5e1", cursor: "not-allowed" }}
+              >
+                <Icon size={20} />
+                <span>{label}</span>
+              </div>
+            );
+          }
+          return (
+            <NavLink
+              key={href}
+              to={href}
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
+              style={({ isActive }) => ({ color: isActive ? "#99C30C" : "#64748b" })}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Notifications panel */}
