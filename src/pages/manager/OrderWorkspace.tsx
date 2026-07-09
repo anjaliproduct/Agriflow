@@ -1,4 +1,4 @@
-import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Scale, Search, ShoppingBag, Sparkles, Sprout, Star, Truck, User, Users, Wallet } from "lucide-react";
+import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Search, ShoppingBag, Sprout, Star, Truck, User, Users, Wallet } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
@@ -29,36 +29,42 @@ export default function OrderWorkspace() {
   const [pickupTimeWindow, setPickupTimeWindow] = useState("");
   const [dispatchDate, setDispatchDate] = useState("");
   const [dispatchTime, setDispatchTime] = useState("");
+  const [priorityCriteria] = useState<Set<string>>(new Set());
+  const [selectedFarmerIds, setSelectedFarmerIds] = useState<Set<string>>(new Set());
 
   function activeStepToWizard(s: Step): number {
-    if (s === "Allocation" || s === "Confirmation") return 0;
+    if (s === "Allocation") return 0;
+    if (s === "Confirmation") return 0;
     if (s === "Pickup") return 1;
     if (s === "Verification") return 2;
     if (s === "Dispatch") return 3;
     return 4;
   }
 
+  function activeSubStepForStatus(s: Step): 0 | 1 {
+    return s === "Confirmation" ? 1 : 0;
+  }
+
   const [wizardStep, setWizardStep] = useState(() => activeStepToWizard(activeStep));
-  const [allocationSubStep, setAllocationSubStep] = useState<0 | 1>(
-    activeStep === "Confirmation" ? 1 : 0
-  );
+  // Internal split within the Allocation stage: 0 = Allocation, 1 = Farmer confirmation
+  const [allocationSubStep, setAllocationSubStep] = useState<0 | 1>(() => activeSubStepForStatus(activeStep));
 
   useEffect(() => {
     if (order) {
       const s = getActiveStep(order.status, order.invoiceStatus, order.paymentStatus);
       const mapped = activeStepToWizard(s);
       setWizardStep((current) => Math.max(current, mapped));
-      setAllocationSubStep(s === "Confirmation" ? 1 : 0);
+      if (mapped === 0) setAllocationSubStep(activeSubStepForStatus(s));
     }
   }, [order?.status, order?.invoiceStatus, order?.paymentStatus]);
 
   useEffect(() => {
-    if (allocationSubStep === 1) {
+    if (wizardStep === 0 && allocationSubStep === 1) {
       setConfirmationRevealed(false);
       const t = setTimeout(() => setConfirmationRevealed(true), 2500);
       return () => clearTimeout(t);
     }
-  }, [allocationSubStep]);
+  }, [wizardStep, allocationSubStep]);
 
   useEffect(() => {
     if (wizardStep === 3 && !dispatchDate) {
@@ -66,16 +72,21 @@ export default function OrderWorkspace() {
     }
   }, [wizardStep, dispatchDate, pickupDate]);
 
-  const WIZARD_STEPS = ["Allocation & Confirmation", "Schedule Pickup", "Verification", "Dispatch", "Settlement"] as const;
+  const WIZARD_STEPS = ["Allocation", "Schedule Pickup", "Verification", "Dispatch", "Settlement"] as const;
   const activeWizardStep = activeStepToWizard(activeStep);
 
   if (!order) return <Navigate to="/manager/orders" replace />;
 
   const pickupRun = pickupRuns.find((run) => run.linkedOrders.includes(order.id));
   const suggested = order.allocation.length ? order.allocation : suggestAllocation(order.produce, order.quantity, farmers, inventory);
-  const totalSuggested = suggested.reduce((sum, item) => sum + item.quantity, 0);
   const totalOrderQuantity = getTotalQuantity(order);
-  const allocationRows = getAllocationRows({ order, allocations: suggested, farmers, inventory });
+  const allocationRows = getAllocationRows({ order, allocations: suggested, inventory });
+  const prioritisationData = buildPrioritisationData(allocationRows, priorityCriteria, selectedFarmerIds);
+  const isAllocationFullyAllocated = DEMO_PRODUCE_TYPES.every((produce) => {
+    const required = produceRequiredQty(produce);
+    const allocated = Object.values(prioritisationData.groupAllocations[produce] ?? {}).reduce((sum, v) => sum + v, 0);
+    return allocated >= required;
+  });
   // Farmers treated as confirmed for now; flip to `suggested` when tracking real confirmations
   const pendingFarmers: typeof suggested = [];
   const allConfirmed = pendingFarmers.length === 0;
@@ -221,12 +232,10 @@ export default function OrderWorkspace() {
               </p>
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-slate-950">
-                  {wizardStep === 0
-                    ? (allocationSubStep === 0 ? "Allocation" : "Farmer Confirmation")
-                    : WIZARD_STEPS[wizardStep]}
+                  {WIZARD_STEPS[wizardStep]}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {wizardStep === 0 && allocationSubStep === 0 && "Review and approve the suggested farmer allocation for this order. Adjust quantities as needed before confirming."}
+                  {wizardStep === 0 && allocationSubStep === 0 && "Only farmers who meet the required quality are shown below. Select the ones you'd like to fulfil the order, and we'll automatically distribute the required quantity between them."}
                   {wizardStep === 0 && allocationSubStep === 1 && "Waiting on farmers to confirm their supply commitment. Accept the order once all confirmations are in."}
                   {wizardStep === 1 && "Coordinate the farm collection route and assign a driver and vehicle for the pickup run."}
                   {wizardStep === 2 && "Verify the quantity and grade of produce collected at the collection centre against declared amounts."}
@@ -235,35 +244,39 @@ export default function OrderWorkspace() {
                 </p>
               </div>
 
-              {/* Step 0: Allocation & Confirmation (two sub-steps) */}
+              {/* Step 0: Allocation (two sub-steps) */}
               {wizardStep === 0 && (
                 <div className="space-y-6">
-                  {/* Sub-step 0a: Allocation */}
+                  {/* Substep 1: Allocation — select and prioritise farmers */}
                   {allocationSubStep === 0 && (
-                    <>
-                      <AllocationPanel rows={allocationRows} totalSuggested={totalSuggested} requiredQuantity={totalOrderQuantity} />
-                      <AllocationRecommendationToggle />
-                    </>
+                    <PrioritisationCriteria
+                      rows={allocationRows}
+                      selected={priorityCriteria}
+                      selectedFarmerIds={selectedFarmerIds}
+                      setSelectedFarmerIds={setSelectedFarmerIds}
+                    />
                   )}
 
-                  {/* Sub-step 0b: Awaiting Confirmation */}
+                  {/* Substep 2: Farmer confirmation */}
                   {allocationSubStep === 1 && (
-                    <>
-                      <div className="w-full divide-y divide-slate-100">
-                        {suggested.map((alloc, idx) => {
+                    <div className="w-full divide-y divide-slate-100">
+                      {prioritisationData.selectedAllocatedFarmers.length === 0 ? (
+                        <p className="py-5 text-sm text-slate-400">No farmers selected during allocation.</p>
+                      ) : (
+                        prioritisationData.selectedAllocatedFarmers.map((farmer) => {
                           const confirmed = confirmationRevealed;
                           return (
-                            <div key={alloc.farmerId} className="flex items-center justify-between py-5">
+                            <div key={farmer.farmerId} className="flex items-center justify-between py-5">
                               <div className="flex items-center gap-3">
                                 <span
                                   className="flex h-9 w-9 shrink-0 items-center justify-center bg-slate-100 text-xs font-semibold text-slate-600"
                                   style={{ borderRadius: 8 }}
                                 >
-                                  {alloc.farmerName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                                  {farmer.farmerName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                                 </span>
                                 <div>
-                                  <p className="text-sm font-medium text-slate-900">{alloc.farmerName}</p>
-                                  <p className="text-xs text-slate-400">{alloc.quantity} kg · {alloc.produce ?? order.produce}</p>
+                                  <p className="text-sm font-medium text-slate-900">{farmer.farmerName}</p>
+                                  <p className="text-xs text-slate-400">{farmer.produce} · {farmer.allocated} kg</p>
                                 </div>
                               </div>
                               {confirmed ? (
@@ -277,9 +290,9 @@ export default function OrderWorkspace() {
                               )}
                             </div>
                           );
-                        })}
-                      </div>
-                    </>
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -429,8 +442,10 @@ export default function OrderWorkspace() {
                   onClick={() => {
                     if (wizardStep === 0 && allocationSubStep === 1) {
                       setAllocationSubStep(0);
+                    } else if (wizardStep === 1) {
+                      setAllocationSubStep(1);
+                      setWizardStep(0);
                     } else {
-                      if (wizardStep === 1) setAllocationSubStep(1);
                       setWizardStep((s) => Math.max(0, s - 1));
                     }
                   }}
@@ -440,23 +455,20 @@ export default function OrderWorkspace() {
                   Back
                 </button>
                 {(() => {
-                  const advance = () => {
-                    if (wizardStep === 0 && allocationSubStep === 0) { setAllocationSubStep(1); }
-                    else { setAllocationSubStep(0); setWizardStep((s) => Math.min(WIZARD_STEPS.length - 1, s + 1)); }
-                  };
+                  const advance = () => setWizardStep((s) => Math.min(WIZARD_STEPS.length - 1, s + 1));
                   let label = "Next";
                   let onClick = advance;
                   if (wizardStep === 0 && allocationSubStep === 0) {
                     label = "Confirm Allocation"; onClick = () => { do_.confirmAllocation(); setAllocationSubStep(1); };
                   } else if (wizardStep === 0 && allocationSubStep === 1) {
-                    label = "Accept order"; onClick = () => { do_.schedulePickup(); setAllocationSubStep(0); setWizardStep((s) => Math.min(4, s + 1)); };
+                    label = "Accept order"; onClick = () => { do_.schedulePickup(); setAllocationSubStep(0); setWizardStep(1); };
                   } else if (wizardStep === 1) {
-                    label = "Confirm Schedule"; onClick = () => { if (assignedDriver && pickupDate) { do_.advanceOrder("Collected"); setWizardStep((s) => Math.min(4, s + 1)); } };
+                    label = "Confirm Schedule"; onClick = () => { if (assignedDriver && pickupDate) { do_.advanceOrder("Collected"); setWizardStep(2); } };
                   } else if (wizardStep === 2) {
-                    label = "Mark Verified"; onClick = () => { do_.verifyQuality(); setWizardStep((s) => Math.min(4, s + 1)); };
+                    label = "Mark Verified"; onClick = () => { do_.verifyQuality(); setWizardStep(3); };
                   } else if (wizardStep === 3) {
                     label = "Dispatch order";
-                    onClick = () => { do_.advanceOrder("Dispatched"); setWizardStep((s) => Math.min(4, s + 1)); };
+                    onClick = () => { do_.advanceOrder("Dispatched"); setWizardStep(4); };
                   }
                   if (wizardStep === WIZARD_STEPS.length - 1) {
                     label = "Close Order"; onClick = () => do_.releasePayment();
@@ -474,7 +486,15 @@ export default function OrderWorkspace() {
                         const isScheduleStep = wizardStep === 1;
                         const scheduleReady = !!assignedDriver && !!pickupDate;
                         const isSettlement = wizardStep === WIZARD_STEPS.length - 1;
-                        const isDisabled = isSettlement || (isScheduleStep && !scheduleReady);
+                        const isAllocationStep = wizardStep === 0 && allocationSubStep === 0;
+                        const isConfirmationSubStep = wizardStep === 0 && allocationSubStep === 1;
+                        const isDispatchStep = wizardStep === 3;
+                        const dispatchReady = !!dispatchTime.trim();
+                        const isDisabled = isSettlement
+                          || (isScheduleStep && !scheduleReady)
+                          || (isAllocationStep && !isAllocationFullyAllocated)
+                          || (isConfirmationSubStep && !confirmationRevealed)
+                          || (isDispatchStep && !dispatchReady);
                         return (
                           <button
                             type="button"
@@ -516,6 +536,7 @@ export default function OrderWorkspace() {
         onSelect={(driver) => { setAssignedDriver(driver); setDriverModalOpen(false); }}
         onClose={() => setDriverModalOpen(false)}
       />
+
     </div>
   );
 }
@@ -546,53 +567,314 @@ function SectionTitle({ title, description }: { title: string; description: stri
   );
 }
 
-function AllocationRecommendationToggle() {
-  const [enabled, setEnabled] = useState(true);
+function isFarmerEligible(farmerId: string, criterionKey: string): boolean {
+  const str = `${farmerId}-${criterionKey}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % 97;
+  return hash % 3 !== 0;
+}
+
+function farmerReliabilityScore(farmerId: string): number {
+  const str = `${farmerId}-reliability-score`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % 100;
+  return 70 + (hash % 30);
+}
+
+function farmerRouteRating(farmerId: string): "Good" | "Medium" | "Poor" {
+  const str = `${farmerId}-route-rating`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % 3;
+  return hash === 0 ? "Good" : hash === 1 ? "Medium" : "Poor";
+}
+
+function farmerAvailableQty(farmerId: string, produce: string): number {
+  const str = `${farmerId}-${produce}-available`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % 400;
+  return 60 + hash;
+}
+
+function produceRequiredQty(produce: string): number {
+  const str = `${produce}-required`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % 500;
+  return 200 + hash;
+}
+
+function smartAllocate(requiredQty: number, farmers: { farmerId: string; available: number }[]): Record<string, number> {
+  const totalAvailable = farmers.reduce((sum, f) => sum + f.available, 0);
+  if (totalAvailable === 0) return {};
+  const result: Record<string, number> = {};
+  farmers.forEach((f) => {
+    const share = Math.round((f.available / totalAvailable) * requiredQty);
+    result[f.farmerId] = Math.min(share, f.available);
+  });
+  return result;
+}
+
+function InfoTooltip({ text }: { text: string }) {
   return (
-    <div className="flex items-start justify-between gap-6">
-      <div className="flex items-start gap-2.5">
-        <span className="flex shrink-0 items-center justify-center rounded-lg bg-violet-50" style={{ width: 42, height: 42 }}>
-          <Sparkles size={17} className="text-violet-500" />
-        </span>
-        <div>
-          <p className="text-sm font-bold text-slate-900">Use Recommended Allocation</p>
-          <p className="mt-0.5 text-sm text-slate-500">System-suggested allocation based on availability, quality, and route. Turn off to allocate manually.</p>
-        </div>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={() => setEnabled((v) => !v)}
-        className="relative shrink-0 h-6 w-11 rounded-full transition-colors duration-200 focus:outline-none"
-        style={{ backgroundColor: enabled ? "#095F25" : "#e2e8f0" }}
-      >
-        <span
-          className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
-          style={{ transform: enabled ? "translateX(20px)" : "translateX(0)" }}
-        />
-      </button>
-    </div>
+    <span className="group relative inline-flex">
+      <InfoIcon size={12} className="cursor-help text-slate-300 hover:text-slate-400" />
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-normal normal-case leading-snug text-white group-hover:block">
+        {text}
+      </span>
+    </span>
   );
 }
 
-function AllocationPanel({
+const SYNTHETIC_FARMERS = [
+  { farmerId: "f6", farmerName: "Hillcrest Growers" },
+  { farmerId: "f7", farmerName: "Deccan Harvest Co." },
+  { farmerId: "f8", farmerName: "Blue Lotus Farms" },
+  { farmerId: "f9", farmerName: "Golden Fields Cooperative" },
+  { farmerId: "f10", farmerName: "Meadowlark Agro" },
+];
+
+const DEMO_PRODUCE_TYPES = ["Tomatoes", "Spinach", "Carrots"];
+
+const PRODUCE_PILL_STYLES: Record<string, string> = {
+  Tomatoes: "bg-red-50 text-red-700 ring-red-200",
+  Spinach: "bg-green-50 text-green-700 ring-green-200",
+  Carrots: "bg-orange-50 text-orange-700 ring-orange-200",
+};
+
+function buildPrioritisationData(rows: AllocationRow[], selected: Set<string>, selectedFarmerIds: Set<string>) {
+  const realFarmers = Array.from(new Map(rows.map((row) => [row.farmerId, row.farmerName])).entries()).map(([farmerId, farmerName]) => ({ farmerId, farmerName }));
+  const allFarmers = [...realFarmers, ...SYNTHETIC_FARMERS].slice(0, 10);
+
+  const demoRows: AllocationRow[] = allFarmers.map((farmer, i) => {
+    const produce = DEMO_PRODUCE_TYPES[i % DEMO_PRODUCE_TYPES.length];
+    return {
+      farmerId: farmer.farmerId,
+      farmerName: farmer.farmerName,
+      produce,
+      allocated: 0,
+      available: farmerAvailableQty(farmer.farmerId, produce),
+      reasons: [],
+    };
+  });
+
+  const eligibleRows = demoRows.filter((row) => [...selected].every((key) => isFarmerEligible(row.farmerId, key)));
+
+  const eligibleFarmers = eligibleRows.map((row) => ({
+    farmerId: row.farmerId,
+    farmerName: row.farmerName,
+    produce: row.produce,
+    available: row.available,
+    reliabilityScore: farmerReliabilityScore(row.farmerId),
+    routeRating: farmerRouteRating(row.farmerId),
+  }));
+
+  const groupedByProduce = DEMO_PRODUCE_TYPES.map((produce) => ({
+    produce,
+    farmers: eligibleFarmers.filter((f) => f.produce === produce),
+  })).filter((group) => group.farmers.length > 0);
+
+  const groupAllocations: Record<string, Record<string, number>> = {};
+  groupedByProduce.forEach((group) => {
+    const selectedInGroup = group.farmers.filter((f) => selectedFarmerIds.has(f.farmerId));
+    groupAllocations[group.produce] = smartAllocate(produceRequiredQty(group.produce), selectedInGroup);
+  });
+
+  const selectedAllocatedFarmers = groupedByProduce.flatMap((group) =>
+    group.farmers
+      .filter((f) => selectedFarmerIds.has(f.farmerId))
+      .map((f) => ({
+        farmerId: f.farmerId,
+        farmerName: f.farmerName,
+        produce: f.produce,
+        allocated: groupAllocations[group.produce]?.[f.farmerId] ?? 0,
+      }))
+  );
+
+  return { eligibleFarmers, groupedByProduce, groupAllocations, selectedAllocatedFarmers };
+}
+
+function PrioritisationCriteria({
   rows,
-  totalSuggested,
-  requiredQuantity,
+  selected,
+  selectedFarmerIds,
+  setSelectedFarmerIds,
 }: {
   rows: AllocationRow[];
-  totalSuggested: number;
-  requiredQuantity: number;
+  selected: Set<string>;
+  selectedFarmerIds: Set<string>;
+  setSelectedFarmerIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(DEMO_PRODUCE_TYPES.slice(1)));
+  const [addingFarmerGroup, setAddingFarmerGroup] = useState<string | null>(null);
+
+  const toggleFarmerSelected = (farmerId: string) =>
+    setSelectedFarmerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(farmerId)) next.delete(farmerId);
+      else next.add(farmerId);
+      return next;
+    });
+
+  const toggleGroup = (produce: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(produce)) next.delete(produce);
+      else next.add(produce);
+      return next;
+    });
+
+  const { eligibleFarmers, groupedByProduce, groupAllocations } = buildPrioritisationData(rows, selected, selectedFarmerIds);
+
   return (
-    <div className="space-y-4">
-      <AllocationTable rows={rows} />
-      {totalSuggested < requiredQuantity ? (
-        <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-          Partial fulfillment risk — {requiredQuantity - totalSuggested} kg short. Consider top-up or buyer notification.
-        </p>
-      ) : null}
+    <div>
+      <div>
+        {eligibleFarmers.length === 0 ? (
+          <div className="mt-2 rounded-xl border border-slate-200 px-4 py-4">
+            <p className="text-sm text-slate-400">No farmers match the selected criteria.</p>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-5">
+            {groupedByProduce.map((group) => {
+              const collapsed = collapsedGroups.has(group.produce);
+              const allInGroupSelected = group.farmers.length > 0 && group.farmers.every((f) => selectedFarmerIds.has(f.farmerId));
+              const groupAllocation = groupAllocations[group.produce] ?? {};
+              const groupRequired = produceRequiredQty(group.produce);
+              const groupAllocatedQty = Object.values(groupAllocation).reduce((sum, v) => sum + v, 0);
+              const groupRemaining = Math.max(groupRequired - groupAllocatedQty, 0);
+              const groupProgressPct = groupRequired > 0 ? Math.min(100, Math.round((groupAllocatedQty / groupRequired) * 100)) : 0;
+              return (
+                <div key={group.produce}>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.produce)}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-slate-100"
+                    >
+                      <ChevronRight size={14} className={`transition-transform ${collapsed ? "" : "rotate-90"}`} />
+                    </button>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${PRODUCE_PILL_STYLES[group.produce] ?? "bg-slate-100 text-slate-700 ring-slate-200"}`}>
+                      {group.produce}
+                    </span>
+                    <div className="mx-2 h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${groupProgressPct}%`, backgroundColor: "#095F25" }} />
+                    </div>
+                    <span className="shrink-0 text-xs font-medium text-slate-500">
+                      {groupRemaining > 0 ? `${groupRemaining} kg required` : "Fully allocated"}
+                    </span>
+                  </div>
+
+                  {!collapsed && (
+                    <table className="mt-1.5 w-full table-fixed text-sm">
+                      <colgroup>
+                        <col style={{ width: 40 }} />
+                        <col />
+                        <col style={{ width: 100 }} />
+                        <col style={{ width: 100 }} />
+                        <col style={{ width: 100 }} />
+                        <col style={{ width: 100 }} />
+                      </colgroup>
+                      <thead>
+                        <tr className="h-8 border-b border-slate-200 text-slate-400">
+                          <th className="pl-6 pr-2 text-left">
+                            <span
+                              role="checkbox"
+                              aria-checked={allInGroupSelected}
+                              onClick={() => {
+                                setSelectedFarmerIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (allInGroupSelected) group.farmers.forEach((f) => next.delete(f.farmerId));
+                                  else group.farmers.forEach((f) => next.add(f.farmerId));
+                                  return next;
+                                });
+                              }}
+                              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded border"
+                              style={allInGroupSelected ? { backgroundColor: "#095F25", borderColor: "#095F25" } : { borderColor: "#cbd5e1" }}
+                            >
+                              {allInGroupSelected && <Check size={11} className="text-white" />}
+                            </span>
+                          </th>
+                          <th className="px-2 text-left text-[11px] font-medium uppercase tracking-wide">Farmer</th>
+                          <th className="px-2 text-right text-[11px] font-medium uppercase tracking-wide">
+                            <span className="inline-flex items-center justify-end gap-1">
+                              Allocated
+                              <InfoTooltip text="Quantity the system suggests allocating to this farmer for this produce." />
+                            </span>
+                          </th>
+                          <th className="px-2 text-right text-[11px] font-medium uppercase tracking-wide">Availability</th>
+                          <th className="px-2 text-right text-[11px] font-medium uppercase tracking-wide">Reliability</th>
+                          <th className="pl-6 pr-2 text-left text-[11px] font-medium uppercase tracking-wide">Route Fit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.farmers.map((farmer) => (
+                          <tr key={farmer.farmerId} className="h-10 border-b border-slate-100 last:border-b-0 hover:bg-slate-50">
+                            <td className="pl-6 pr-2">
+                              <span
+                                role="checkbox"
+                                aria-checked={selectedFarmerIds.has(farmer.farmerId)}
+                                onClick={() => toggleFarmerSelected(farmer.farmerId)}
+                                className="flex h-4 w-4 cursor-pointer items-center justify-center rounded border"
+                                style={selectedFarmerIds.has(farmer.farmerId)
+                                  ? { backgroundColor: "#095F25", borderColor: "#095F25" }
+                                  : { borderColor: "#cbd5e1" }
+                                }
+                              >
+                                {selectedFarmerIds.has(farmer.farmerId) && <Check size={11} className="text-white" />}
+                              </span>
+                            </td>
+                            <td className="px-2 font-medium text-slate-950">{farmer.farmerName}</td>
+                            <td className="px-2 text-right text-slate-500">
+                              {selectedFarmerIds.has(farmer.farmerId) ? `${groupAllocation[farmer.farmerId] ?? 0} kg` : "—"}
+                            </td>
+                            <td className="px-2 text-right text-slate-500">{farmer.available} kg</td>
+                            <td className="px-2 text-right text-slate-700">{farmer.reliabilityScore}%</td>
+                            <td className="pl-6 pr-2 text-left">
+                              <span className="inline-flex items-center gap-1.5 text-slate-700">
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${
+                                    farmer.routeRating === "Good" ? "bg-green-500"
+                                    : farmer.routeRating === "Medium" ? "bg-amber-400"
+                                    : "bg-red-500"
+                                  }`}
+                                />
+                                {farmer.routeRating}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="h-9">
+                          <td colSpan={6} className="px-0">
+                            {addingFarmerGroup === group.produce ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                placeholder="Farmer name"
+                                className="h-9 w-full bg-transparent pl-6 pr-2 text-sm text-slate-900 outline-none"
+                                onBlur={() => setAddingFarmerGroup(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
+                                }}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setAddingFarmerGroup(group.produce)}
+                                className="flex h-9 w-full items-center gap-1.5 pl-6 pr-2 text-left text-sm text-slate-400 hover:text-slate-700"
+                              >
+                                <Plus size={14} />
+                                Add farmer
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -603,129 +885,8 @@ type AllocationRow = {
   produce: string;
   allocated: number;
   available: number;
-  quality: RuleSignal;
-  distance: RuleSignal;
   reasons: string[];
 };
-
-type RuleSignal = {
-  label: string;
-  tone: "fresh" | "good" | "watch" | "bad";
-};
-
-function AllocationTable({ rows }: { rows: AllocationRow[] }) {
-  const [addingFarmer, setAddingFarmer] = useState(false);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const focusCell = (index: number) => {
-    const el = inputRefs.current[index];
-    if (!el) return;
-    el.focus();
-    el.select();
-  };
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-200">
-      <table className="w-full text-sm">
-        <colgroup>
-          <col className="w-[200px]" />
-          <col className="w-[100px]" />
-          <col className="w-[100px]" />
-          <col className="w-[100px]" />
-          <col className="w-[100px]" />
-          <col className="w-[100px]" />
-        </colgroup>
-        <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
-          <tr className="h-9">
-            <th className="px-3 text-left font-medium">Farmer</th>
-            <th className="px-3 text-left font-medium">Produce</th>
-            <th className="pl-5 pr-5 text-right font-medium">Allocated</th>
-            <th className="pl-5 pr-5 text-right font-medium">Available</th>
-            <th className="pl-[50px] pr-3 text-left font-medium">Quality</th>
-            <th className="px-3 text-right font-medium">Distance</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={`${row.farmerId}-${row.produce}-${index}`} className="group border-b border-slate-100 hover:bg-slate-50/60">
-              <td className="px-3 py-0 font-medium text-slate-950">
-                <div className="flex h-12 items-center">{row.farmerName}</div>
-              </td>
-              <td className="px-3 py-0 text-slate-900">
-                <div className="flex h-12 items-center">{row.produce}</div>
-              </td>
-              <td className="p-0">
-                <input
-                  ref={(el) => { inputRefs.current[index] = el; }}
-                  className="h-12 w-full bg-transparent pl-5 pr-5 text-right text-slate-900 outline-none"
-                  defaultValue={`${row.allocated} kg`}
-                  aria-label={`${row.farmerName} allocated`}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
-                      e.preventDefault();
-                      focusCell(index + 1);
-                    }
-                    if (e.key === "Tab" && e.shiftKey) {
-                      e.preventDefault();
-                      focusCell(index - 1);
-                    }
-                    if (e.key === "Escape") e.currentTarget.blur();
-                  }}
-                />
-              </td>
-              <td className="pl-5 pr-5 py-0 text-right text-slate-500">
-                <div className="flex h-12 items-center justify-end">{row.available} kg</div>
-              </td>
-              <td className="pl-[50px] pr-3 py-0 text-right">
-                <div className="flex h-12 items-center"><RuleIndicator signal={row.quality} /></div>
-              </td>
-              <td className="px-3 py-0 text-right text-sm text-slate-500">
-                <div className="flex h-12 items-center justify-end">{row.distance.label}</div>
-              </td>
-            </tr>
-          ))}
-          {addingFarmer ? (
-            <tr className="border-b border-slate-100 bg-slate-50">
-              <td className="p-0"><input className="h-12 w-full bg-transparent px-4 text-sm outline-none" placeholder="Farmer name" /></td>
-              <td className="p-0"><input className="h-12 w-full bg-transparent px-3 text-sm outline-none" placeholder="Produce" /></td>
-              <td className="p-0"><input className="h-12 w-full bg-transparent px-3 text-right text-sm font-semibold outline-none" placeholder="kg" /></td>
-              <td colSpan={2} />
-              <td className="px-3 text-right">
-                <button className="text-sm font-medium text-slate-500 hover:text-slate-900" type="button" onClick={() => setAddingFarmer(false)}>Done</button>
-              </td>
-            </tr>
-          ) : null}
-          <tr className="h-11">
-            <td colSpan={6} className="px-3">
-              <button
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-slate-900"
-                type="button"
-                onClick={() => setAddingFarmer(true)}
-              >
-                <Plus size={15} /> Add farmer
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function RuleIndicator({ signal }: { signal: RuleSignal }) {
-  const dotClass =
-    signal.tone === "fresh" ? "bg-green-800"
-    : signal.tone === "good" ? "bg-green-500"
-    : signal.tone === "watch" ? "bg-amber-400"
-    : "bg-red-500";
-  return (
-    <span className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap text-xs font-medium text-slate-500">
-      <span className={`h-2 w-2 rounded-full ${dotClass}`} />
-      {signal.label}
-    </span>
-  );
-}
 
 function ConfirmationTable({ allocations, confirmed }: { allocations: ReturnType<typeof suggestAllocation>; confirmed: boolean }) {
   return (
@@ -1847,7 +2008,6 @@ function getTotalQuantity(order: { quantity: number; items?: { quantity: number 
 function getAllocationRows({
   order,
   allocations,
-  farmers,
   inventory,
 }: {
   order: {
@@ -1857,7 +2017,6 @@ function getAllocationRows({
     deliveryDate: string;
   };
   allocations: ReturnType<typeof suggestAllocation>;
-  farmers: ReturnType<typeof useAppStore.getState>["farmers"];
   inventory: ReturnType<typeof useAppStore.getState>["inventory"];
 }): AllocationRow[] {
   const orderItems = order.items?.length
@@ -1873,29 +2032,14 @@ function getAllocationRows({
       order.produce;
     remainingByProduce.set(produce, Math.max((remainingByProduce.get(produce) ?? 0) - allocation.quantity, 0));
 
-    const farmer = farmers.find((entry) => entry.id === allocation.farmerId);
     const inventoryItem = inventory.find((item) => item.farmerId === allocation.farmerId && item.produce === produce);
     const available = inventoryItem ? inventoryItem.declaredQuantity - inventoryItem.reservedQuantity : allocation.quantity;
-    const grade = inventoryItem?.verifiedGrade ?? inventoryItem?.estimatedGrade;
-    const quality: RuleSignal =
-      grade === "A" ? { label: "Grade A", tone: "good" }
-      : grade === "B" ? { label: "Grade B", tone: "watch" }
-      : { label: grade ? `Grade ${grade}` : "Pending", tone: "bad" };
-    const distanceKm = farmer?.distance;
-    const distance: RuleSignal =
-      distanceKm === undefined ? { label: "—", tone: "watch" }
-      : distanceKm <= 15 ? { label: `${distanceKm} km`, tone: "good" }
-      : distanceKm <= 22 ? { label: `${distanceKm} km`, tone: "watch" }
-      : { label: `${distanceKm} km`, tone: "bad" };
-
     return {
       farmerId: allocation.farmerId,
       farmerName: allocation.farmerName,
       produce,
       allocated: allocation.quantity,
       available: totalByProduce.get(produce) ?? available,
-      quality,
-      distance,
       reasons: allocation.reasons,
     };
   });
