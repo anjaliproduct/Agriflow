@@ -24,11 +24,13 @@ textarea {
 /* Leaflet zoom controls — circular modern style */
 .leaflet-control-zoom {
   border: none !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08) !important;
+  box-shadow: none !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 6px !important;
   background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
+  opacity: 1 !important;
 }
 
 .leaflet-control-zoom-in,

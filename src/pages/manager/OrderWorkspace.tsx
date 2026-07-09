@@ -1,4 +1,4 @@
-import { AlertCircle, BadgePercent, BarChart3, Check, CheckCircle2, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Scale, ShoppingBag, Sparkles, Sprout, Store, Truck, User, Users, Wallet, Warehouse } from "lucide-react";
+import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Scale, Search, ShoppingBag, Sparkles, Sprout, Star, Store, Truck, User, Users, Wallet, Warehouse } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
@@ -279,43 +279,16 @@ export default function OrderWorkspace() {
               {/* Step 1: Schedule Pickup */}
               {wizardStep === 1 && (
                 <div className="mt-4 space-y-4">
-                  {/* Assign Driver CTA */}
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-                    <div>
-                      {assignedDriver ? (
-                        <>
-                          <p className="text-xs font-medium text-slate-400">Assigned Driver</p>
-                          <p className="mt-0.5 text-sm font-semibold text-slate-900">{assignedDriver.name} <span className="font-normal text-slate-400">· {assignedDriver.vehicle}</span></p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm font-medium text-slate-900">No driver assigned</p>
-                          <p className="text-xs text-slate-400">Select an available driver for this pickup run</p>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setDriverModalOpen(true)}
-                      className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                    >
-                      {assignedDriver ? "Change" : "Assign Driver"}
-                    </button>
-                  </div>
-
-                  {/* Date + Time Window */}
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Date + Time Window + Driver */}
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="rounded-xl border border-slate-200 px-4 py-3">
-                      <p className="text-xs font-medium text-slate-400">Pickup Date</p>
-                      <input
-                        type="date"
-                        value={pickupDate}
-                        onChange={(e) => setPickupDate(e.target.value)}
-                        className="mt-1 w-full bg-transparent text-sm font-medium text-slate-900 outline-none"
-                      />
+                      <p className="text-xs font-medium text-slate-900">Pickup Date</p>
+                      <div className="mt-1">
+                        <PickupDateField value={pickupDate} onChange={setPickupDate} />
+                      </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 px-4 py-3">
-                      <p className="text-xs font-medium text-slate-400">Time Window</p>
+                      <p className="text-xs font-medium text-slate-900">Time Window</p>
                       <input
                         type="text"
                         value={pickupTimeWindow}
@@ -324,6 +297,16 @@ export default function OrderWorkspace() {
                         className="mt-1 w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300"
                       />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setDriverModalOpen(true)}
+                      className="rounded-xl border border-slate-200 px-4 py-3 text-left"
+                    >
+                      <p className="text-xs font-medium text-slate-900">Driver assigned</p>
+                      <p className={`mt-1 truncate text-sm font-medium ${assignedDriver ? "text-slate-900" : "text-slate-300"}`}>
+                        {assignedDriver ? assignedDriver.name : "Not assigned"}
+                      </p>
+                    </button>
                   </div>
 
                   {/* Route map + timeline (if run exists) */}
@@ -496,6 +479,8 @@ export default function OrderWorkspace() {
 
       <DriverAssignModal
         open={driverModalOpen}
+        order={order}
+        invoiceAmount={invoiceAmount}
         onSelect={(driver) => { setAssignedDriver(driver); setDriverModalOpen(false); }}
         onClose={() => setDriverModalOpen(false)}
       />
@@ -855,7 +840,7 @@ function VerticalRouteTimeline({ run }: { run: ReturnType<typeof useAppStore.get
             {/* Drag handle */}
             <div className="flex w-5 flex-col items-center pt-1">
               {!node.isFinal ? (
-                <GripVertical size={12} className="cursor-grab text-slate-300 active:cursor-grabbing" />
+                <GripVertical size={12} className="cursor-grab text-slate-500 active:cursor-grabbing" />
               ) : <div className="w-3" />}
             </div>
 
@@ -1320,62 +1305,254 @@ function ReleasePaymentModal({
   );
 }
 
+function PickupDateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = value ? new Date(`${value}T00:00:00`) : new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedDate = value ? new Date(`${value}T00:00:00`) : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const isSameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  const monthLabel = viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const firstWeekday = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1).getDay();
+  const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+  const daysInPrevMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 0).getDate();
+
+  const cells: { date: Date; inMonth: boolean }[] = [];
+  for (let i = firstWeekday - 1; i >= 0; i--) {
+    cells.push({ date: new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, daysInPrevMonth - i), inMonth: false });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ date: new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d), inMonth: true });
+  }
+  while (cells.length % 7 !== 0) {
+    const last = cells[cells.length - 1].date;
+    cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), inMonth: false });
+  }
+
+  const displayValue = selectedDate
+    ? selectedDate.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+    : "dd/mm/yyyy";
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-1.5 text-left">
+        <Calendar className="h-4 w-4 flex-shrink-0 text-slate-400" />
+        <span className={`text-sm font-medium ${selectedDate ? "text-slate-900" : "text-slate-300"}`}>{displayValue}</span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-[320px] animate-[accordionOpen_160ms_ease-out] rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl ring-1 ring-black/5">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}
+              className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <p className="text-sm font-semibold text-slate-900">{monthLabel}</p>
+            <button
+              type="button"
+              onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}
+              className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7">
+            {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+              <p key={i} className="text-center text-[11px] font-medium text-slate-400">{d}</p>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-7 gap-y-1">
+            {cells.map(({ date, inMonth }, i) => {
+              const isSelected = !!selectedDate && isSameDay(date, selectedDate);
+              const isToday = isSameDay(date, today);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => { onChange(toISO(date)); setOpen(false); }}
+                  className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors ${
+                    isSelected
+                      ? "bg-slate-900 font-semibold text-white shadow-md"
+                      : !inMonth
+                        ? "text-slate-300 hover:bg-slate-50"
+                        : isToday
+                          ? "font-semibold text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-100"
+                          : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {date.getDate()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+            <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="text-xs font-semibold text-slate-500 hover:text-slate-800">
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => { onChange(toISO(today)); setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setOpen(false); }}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const MOCK_DRIVERS = [
-  { name: "Ravi Kumar",   vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "Available" },
-  { name: "Meera Singh",  vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "On Run" },
-  { name: "Arun Mehta",   vehicle: "Mini Truck KA-03-7712",     capacity: "600 kg",   status: "Available" },
-  { name: "Kavya Rao",    vehicle: "Van KA-04-1190",            capacity: "400 kg",   status: "Available" },
-  { name: "Rafiq Khan",   vehicle: "Refrigerated Van KA-02-8810", capacity: "500 kg", status: "On Run" },
+  { name: "Ravi Kumar",   vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "Available", availableLoad: "1,200 kg", trust: 4.8, fee: 450 },
+  { name: "Meera Singh",  vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "On Run",    availableLoad: "300 kg",   trust: 4.6, fee: 450 },
+  { name: "Arun Mehta",   vehicle: "Mini Truck KA-03-7712",     capacity: "600 kg",   status: "Available", availableLoad: "600 kg",   trust: 4.9, fee: 300 },
+  { name: "Kavya Rao",    vehicle: "Van KA-04-1190",            capacity: "400 kg",   status: "Available", availableLoad: "400 kg",   trust: 4.3, fee: 220 },
+  { name: "Rafiq Khan",   vehicle: "Refrigerated Van KA-02-8810", capacity: "500 kg", status: "On Run",    availableLoad: "150 kg",   trust: 4.7, fee: 380 },
 ];
 
 function DriverAssignModal({
   open,
+  order,
+  invoiceAmount,
   onSelect,
   onClose,
 }: {
   open: boolean;
+  order: ReturnType<typeof useAppStore.getState>["orders"][number];
+  invoiceAmount: number;
   onSelect: (driver: { name: string; vehicle: string }) => void;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   if (!open) return null;
+
+  const suggestedName = MOCK_DRIVERS
+    .filter((d) => d.status === "Available")
+    .sort((a, b) => b.trust - a.trust)[0]?.name;
+
+  const matches = (d: (typeof MOCK_DRIVERS)[number]) =>
+    d.name.toLowerCase().includes(query.trim().toLowerCase()) || d.vehicle.toLowerCase().includes(query.trim().toLowerCase());
+
+  const suggested = MOCK_DRIVERS.filter((d) => d.name === suggestedName && matches(d));
+  const others = MOCK_DRIVERS.filter((d) => d.name !== suggestedName && matches(d));
+
+  const renderDriverCard = (d: (typeof MOCK_DRIVERS)[number]) => {
+    const isAvailable = d.status === "Available";
+    const isSelected = selected === d.name;
+    return (
+      <div key={d.name} className="flex items-start gap-2.5">
+        <span
+          aria-hidden="true"
+          className={`mt-3.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 ${
+            isSelected ? "border-green-600" : "border-slate-300"
+          }`}
+        >
+          {isSelected && <span className="h-2 w-2 rounded-full bg-green-600" />}
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setSelected(d.name)}
+          className="w-full overflow-hidden rounded-xl border border-slate-200 text-left transition-colors hover:border-slate-300"
+        >
+          <div className="flex items-start gap-3 bg-white px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-900">{d.name}</p>
+              <p className="mt-0.5 text-xs text-slate-400">{d.vehicle}</p>
+            </div>
+            <span className={`flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${isAvailable ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-600"}`}>
+              {d.status}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-1.5" style={{ backgroundColor: "#F8FAFC" }}>
+            <span className="text-xs font-semibold text-slate-700">{d.availableLoad}</span>
+            <span className="text-xs font-semibold text-slate-900">₹{d.fee}</span>
+            <span className="flex items-center gap-1 text-xs font-semibold text-slate-700">
+              <Star className="h-3.5 w-3.5 fill-slate-400 text-slate-400" />
+              {d.trust.toFixed(1)}
+            </span>
+          </div>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center">
       <button className="absolute inset-0 bg-slate-950/20" onClick={onClose} aria-label="Close" />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="relative flex max-h-[600px] w-full max-w-[408px] flex-col rounded-2xl bg-white p-6 shadow-2xl">
         <h2 className="text-base font-semibold text-slate-900">Assign Driver</h2>
         <p className="mt-1 text-sm text-slate-400">Select an available driver for this pickup run</p>
 
-        <div className="mt-4 space-y-2">
-          {MOCK_DRIVERS.map((d) => {
-            const isAvailable = d.status === "Available";
-            const isSelected = selected === d.name;
-            return (
-              <button
-                key={d.name}
-                type="button"
-                disabled={!isAvailable}
-                onClick={() => setSelected(d.name)}
-                className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                  isSelected
-                    ? "border-green-500 bg-green-50"
-                    : isAvailable
-                      ? "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                      : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm font-semibold ${isSelected ? "text-green-800" : "text-slate-900"}`}>{d.name}</p>
-                    <p className="mt-0.5 text-xs text-slate-400">{d.vehicle} · {d.capacity}</p>
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isAvailable ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-400"}`}>
-                    {d.status}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+        <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div>
+            <p className="text-[11px] text-slate-400">Required quantity</p>
+            <p className="mt-0.5 text-sm font-semibold text-slate-900">{order.quantity.toLocaleString()} kg</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-400">Order value</p>
+            <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatCurrency(invoiceAmount)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-400">Pickup stops</p>
+            <p className="mt-0.5 text-sm font-semibold text-slate-900">{order.allocation.length} farm{order.allocation.length === 1 ? "" : "s"}</p>
+          </div>
+        </div>
+
+        <div className="relative mt-4">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search drivers or vehicles"
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-300"
+          />
+        </div>
+
+        <div className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+          {suggested.length > 0 && (
+            <div>
+              <p className="mb-2 text-[12px] font-bold text-slate-400">Suggested</p>
+              <div className="space-y-4">{suggested.map(renderDriverCard)}</div>
+            </div>
+          )}
+
+          {others.length > 0 && (
+            <div>
+              <p className="mb-2 text-[12px] font-bold text-slate-400">Others</p>
+              <div className="space-y-4">{others.map(renderDriverCard)}</div>
+            </div>
+          )}
+
+          {suggested.length === 0 && others.length === 0 && (
+            <p className="py-6 text-center text-sm text-slate-400">No drivers match "{query}"</p>
+          )}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
