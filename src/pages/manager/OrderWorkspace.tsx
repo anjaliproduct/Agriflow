@@ -1,4 +1,4 @@
-import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Scale, Search, ShoppingBag, Sparkles, Sprout, Star, Store, Truck, User, Users, Wallet, Warehouse } from "lucide-react";
+import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Scale, Search, ShoppingBag, Sparkles, Sprout, Star, Truck, User, Users, Wallet } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
@@ -27,6 +27,8 @@ export default function OrderWorkspace() {
   const [assignedDriver, setAssignedDriver] = useState<{ name: string; vehicle: string } | null>(null);
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTimeWindow, setPickupTimeWindow] = useState("");
+  const [dispatchDate, setDispatchDate] = useState("");
+  const [dispatchTime, setDispatchTime] = useState("");
 
   function activeStepToWizard(s: Step): number {
     if (s === "Allocation" || s === "Confirmation") return 0;
@@ -57,6 +59,12 @@ export default function OrderWorkspace() {
       return () => clearTimeout(t);
     }
   }, [allocationSubStep]);
+
+  useEffect(() => {
+    if (wizardStep === 3 && !dispatchDate) {
+      setDispatchDate(pickupDate || new Date().toISOString().slice(0, 10));
+    }
+  }, [wizardStep, dispatchDate, pickupDate]);
 
   const WIZARD_STEPS = ["Allocation & Confirmation", "Schedule Pickup", "Verification", "Dispatch", "Settlement"] as const;
   const activeWizardStep = activeStepToWizard(activeStep);
@@ -339,9 +347,33 @@ export default function OrderWorkspace() {
               {/* Step 3: Dispatch */}
               {wizardStep === 3 && (
                 <div>
-                  <SectionTitle title="Delivery address" description={BUYER_ADDRESSES[order.buyer] ?? order.buyer} />
-                  <div className="mt-5">
-                    <DeliveryMap orderStatus={order.status} buyer={order.buyer} run={pickupRun} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-slate-200 px-4 py-3">
+                      <p className="text-xs font-medium text-slate-900">Dispatch Date</p>
+                      <div className="mt-1">
+                        <PickupDateField value={dispatchDate} onChange={setDispatchDate} />
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 px-4 py-3">
+                      <p className="text-xs font-medium text-slate-900">Dispatch Time</p>
+                      <input
+                        type="text"
+                        value={dispatchTime}
+                        onChange={(e) => setDispatchTime(e.target.value)}
+                        placeholder="e.g. 4:00 PM"
+                        className="mt-1 w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-8">
+                    <DeliveryMap
+                      order={order}
+                      buyer={order.buyer}
+                      run={pickupRun}
+                      assignedDriver={assignedDriver}
+                      dispatchTime={dispatchTime}
+                    />
                   </div>
                 </div>
               )}
@@ -1018,60 +1050,150 @@ const BUYER_ADDRESSES: Record<string, string> = {
   "City Basket Retail":      "Central Warehouse, Yeshwanthpur, Bangalore — 560022",
 };
 
-function DeliveryMap({ orderStatus, buyer, run }: {
-  orderStatus: OrderStatus;
+const BUYER_CONTACTS: Record<string, { contact: string; phone: string }> = {
+  "Adam's Grocery":          { contact: "Adam Fernandes", phone: "+91 98440 21190" },
+  "FreshMart Distribution":  { contact: "Priya Nair",     phone: "+91 99860 33421" },
+  "Garden Table Restaurant": { contact: "Rohan Kapoor",   phone: "+91 90080 76652" },
+  "City Basket Retail":      { contact: "Sana Iyer",      phone: "+91 97401 59283" },
+};
+
+const COLLECTION_CENTER_ADDRESSES: Record<string, string> = {
+  "Main Collection Center": "22, Tumkur Road, Peenya Industrial Area, Bangalore — 560058",
+  "Leafy Greens Bay":       "8, Hesaraghatta Main Road, Bangalore — 560088",
+};
+
+const PRODUCE_IMAGES: Record<string, string> = {
+  Tomatoes:    "/Dispatch_tomato.jpg",
+  Onions:      "/Dispatch_onion.jpg",
+  Potatoes:    "/Farm%20Produce/Potato.png",
+  Carrots:     "/Farm%20Produce/Carrot.png",
+  Spinach:     "/Farm%20Produce/Spinach.png",
+  Broccoli:    "/Farm%20Produce/Brocolli.png",
+  Cucumber:    "/Farm%20Produce/Cucumber.png",
+  Cabbage:     "/Farm%20Produce/Cabbage.png",
+  Corn:        "/Farm%20Produce/Corn.png",
+  Blueberry:   "/Farm%20Produce/Blueberry.png",
+  Lemon:       "/Farm%20Produce/Lemon.png",
+  Pomegranate: "/Farm%20Produce/Pomogranate.png",
+};
+
+const TRANSIT_HOURS = 5;
+
+function DeliveryMap({ order, buyer, run, assignedDriver, dispatchTime }: {
+  order: ReturnType<typeof useAppStore.getState>["orders"][number];
   buyer: string;
   run: ReturnType<typeof useAppStore.getState>["pickupRuns"][number] | undefined;
+  assignedDriver: { name: string; vehicle: string } | null;
+  dispatchTime: string;
 }) {
-  const isDispatched = ["Dispatched", "Delivered"].includes(orderStatus);
-  const isDelivered = orderStatus === "Delivered";
+  const driverName = assignedDriver?.name ?? run?.driver;
+  const driverVehicle = assignedDriver?.vehicle ?? run?.vehicle;
+  const driverDetails = driverName ? MOCK_DRIVERS.find((d) => d.name === driverName) : undefined;
+  const buyerContact = BUYER_CONTACTS[buyer];
+  const collectionCenterName = run?.collectionCenter ?? "Collection Centre";
+  const collectionCenterAddress = COLLECTION_CENTER_ADDRESSES[collectionCenterName] ?? "—";
 
-  const dispatchDate = run ? `${formatShortDate(run.date)} · ${run.eta}` : "—";
-
-  const deliveryStatus = run?.status === "Delayed" ? "Delayed" : isDelivered ? "Ahead of time" : "On-time";
-  const deliveryStatusStyle =
-    deliveryStatus === "Delayed" ? "bg-orange-50 text-orange-600" :
-    deliveryStatus === "Ahead of time" ? "bg-green-100 text-green-800" :
-    "bg-green-50 text-green-600";
+  const orderItems = order.items?.length ? order.items : [{ produce: order.produce, quantity: order.quantity, requestedGrade: order.requestedGrade }];
 
   return (
-    <div className="space-y-4">
-      {/* Route headline */}
-      <div className="flex items-center">
-        <div className="shrink-0">
-          <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
-            <Warehouse size={17} className="text-slate-500" />
-          </div>
-          <p className="text-sm font-semibold text-slate-950">{run?.collectionCenter ?? "Collection Centre"}</p>
-          <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
-            <span>Dispatch: {dispatchDate}</span>
-            <button type="button" className="rounded p-0.5 hover:bg-slate-100 hover:text-slate-600">
-              <Pencil size={10} />
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-1 items-center gap-1 px-3">
-          <div className="h-px flex-1 bg-slate-200" />
-          <Truck size={13} className={isDispatched ? "text-leaf" : "text-slate-300"} />
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-        <div className="shrink-0">
-          <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
-            <Store size={17} className="text-slate-500" />
-          </div>
-          <p className="text-sm font-semibold text-slate-950">{buyer}</p>
-          <p className="mt-0.5 text-xs text-slate-400">{isDelivered ? "Delivered ✓" : `ETA: ${dispatchDate}`}</p>
+    <div>
+      {/* Order summary */}
+      <div>
+        <p className="text-base font-semibold text-slate-700">Order summary</p>
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
+              <tr className="h-9">
+                <th className="px-3 text-left font-medium">Produce</th>
+                <th className="px-3 text-left font-medium">Grade</th>
+                <th className="px-3 text-right font-medium">Quantity</th>
+                <th className="px-3 text-right font-medium">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderItems.map((item) => (
+                <tr key={item.produce} className="border-b border-slate-100 last:border-b-0">
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      {PRODUCE_IMAGES[item.produce] ? (
+                        <img
+                          src={PRODUCE_IMAGES[item.produce]}
+                          alt={item.produce}
+                          className="h-8 w-8 flex-shrink-0 rounded-md border border-slate-200 bg-white object-contain p-0.5"
+                        />
+                      ) : (
+                        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+                          <Sprout className="h-4 w-4 text-slate-400" />
+                        </span>
+                      )}
+                      <span className="font-semibold text-slate-900">{item.produce}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-500">Grade {item.requestedGrade}</td>
+                  <td className="px-3 py-2.5 text-right text-slate-500">{item.quantity.toLocaleString()} kg</td>
+                  <td className="px-3 py-2.5 text-right font-medium text-slate-900">{formatCurrency(item.quantity * 2.4)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50">
+                <td colSpan={2} className="px-3 py-2.5 font-semibold text-slate-900">Total</td>
+                <td className="px-3 py-2.5 text-right font-semibold text-slate-900">
+                  {orderItems.reduce((sum, item) => sum + item.quantity, 0).toLocaleString()} kg
+                </td>
+                <td className="px-3 py-2.5 text-right font-semibold text-slate-900">
+                  {formatCurrency(orderItems.reduce((sum, item) => sum + item.quantity, 0) * 2.4)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 
-      {/* Run + driver */}
-      <div className="flex justify-between border-t border-slate-100 pt-4 mt-1">
-        <Info label="Run" value={run?.id ?? "—"} />
-        <Info label="Driver" value={run?.driver ?? "—"} />
-        <Info label="Vehicle" value={run?.vehicle ?? "—"} />
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Status</p>
-          <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${deliveryStatusStyle}`}>{deliveryStatus}</span>
+      {/* Contact details */}
+      <div className="pt-8 pb-4">
+        <p className="text-base font-semibold text-slate-700">Contact details</p>
+        <div className="mt-3 flex items-center gap-4">
+          <div className="w-56 flex-shrink-0">
+            <p className="text-xs font-medium text-slate-900">Driver</p>
+            {driverName ? (
+              <div className="mt-1.5">
+                <p className="truncate text-sm font-semibold text-slate-900">{driverName}</p>
+                <p className="mt-0.5 truncate text-[13px] text-slate-500">{driverVehicle ?? "—"}</p>
+                <p className="mt-1 text-[13px] text-slate-500">{collectionCenterAddress}</p>
+                {driverDetails?.phone && (
+                  <p className="mt-1 text-[13px] text-slate-500">Contact: {driverDetails.phone}</p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-slate-300">Not assigned</p>
+            )}
+          </div>
+
+          <div className="flex flex-1 flex-col items-center gap-1.5">
+            <div className="flex w-full items-center gap-1.5">
+              <div className="h-px flex-1 bg-slate-200" />
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: "#EC489926", color: "#9D174D" }}>
+                <Truck size={14} />
+              </div>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+            {dispatchTime && (
+              <p className="whitespace-nowrap text-[11px] font-medium text-slate-500">Est. transit: {TRANSIT_HOURS} hours</p>
+            )}
+          </div>
+
+          <div className="w-56 flex-shrink-0">
+            <p className="text-xs font-medium text-slate-900">Buyer</p>
+            <div className="mt-1.5">
+              <p className="truncate text-sm font-semibold text-slate-900">{buyer}</p>
+              <p className="mt-0.5 truncate text-[13px] text-slate-500">{buyerContact?.contact ?? "—"}</p>
+              <p className="mt-1 text-[13px] text-slate-500">{BUYER_ADDRESSES[buyer] ?? "—"}</p>
+              {buyerContact?.phone && (
+                <p className="mt-1 text-[13px] text-slate-500">Contact: {buyerContact.phone}</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1426,11 +1548,11 @@ function PickupDateField({ value, onChange }: { value: string; onChange: (v: str
 }
 
 const MOCK_DRIVERS = [
-  { name: "Ravi Kumar",   vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "Available", availableLoad: "1,200 kg", trust: 4.8, fee: 450 },
-  { name: "Meera Singh",  vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "On Run",    availableLoad: "300 kg",   trust: 4.6, fee: 450 },
-  { name: "Arun Mehta",   vehicle: "Mini Truck KA-03-7712",     capacity: "600 kg",   status: "Available", availableLoad: "600 kg",   trust: 4.9, fee: 300 },
-  { name: "Kavya Rao",    vehicle: "Van KA-04-1190",            capacity: "400 kg",   status: "Available", availableLoad: "400 kg",   trust: 4.3, fee: 220 },
-  { name: "Rafiq Khan",   vehicle: "Refrigerated Van KA-02-8810", capacity: "500 kg", status: "On Run",    availableLoad: "150 kg",   trust: 4.7, fee: 380 },
+  { name: "Ravi Kumar",   vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "Available", availableLoad: "1,200 kg", trust: 4.8, fee: 450, phone: "+91 98450 12233" },
+  { name: "Meera Singh",  vehicle: "Truck KA-05-2281",          capacity: "1,200 kg", status: "On Run",    availableLoad: "300 kg",   trust: 4.6, fee: 450, phone: "+91 98861 44720" },
+  { name: "Arun Mehta",   vehicle: "Mini Truck KA-03-7712",     capacity: "600 kg",   status: "Available", availableLoad: "600 kg",   trust: 4.9, fee: 300, phone: "+91 99000 55317" },
+  { name: "Kavya Rao",    vehicle: "Van KA-04-1190",            capacity: "400 kg",   status: "Available", availableLoad: "400 kg",   trust: 4.3, fee: 220, phone: "+91 97403 88129" },
+  { name: "Rafiq Khan",   vehicle: "Refrigerated Van KA-02-8810", capacity: "500 kg", status: "On Run",    availableLoad: "150 kg",   trust: 4.7, fee: 380, phone: "+91 96322 70914" },
 ];
 
 function DriverAssignModal({
@@ -1719,11 +1841,6 @@ function getActiveStep(status: OrderStatus, _invoiceStatus: string, paymentStatu
 
 function getTotalQuantity(order: { quantity: number; items?: { quantity: number }[] }) {
   return order.items?.length ? order.items.reduce((sum, item) => sum + item.quantity, 0) : order.quantity;
-}
-
-
-function formatShortDate(date: string) {
-  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(new Date(`${date}T00:00:00`));
 }
 
 
