@@ -1,38 +1,24 @@
 import { Outlet, NavLink } from "react-router";
 import { useState } from "react";
-import { BarChart3, Bell, ClipboardList, CreditCard, LayoutDashboard, Package, Route, Receipt, ShoppingBasket, Sprout, Truck, Users } from "lucide-react";
+import { ClipboardList, CreditCard, ShoppingBasket, Sprout } from "lucide-react";
 import NotificationPanel from "./NotificationPanel";
-import Sidebar, { ENABLED_HREFS } from "./Sidebar";
+import Sidebar from "./Sidebar";
 import { useAppStore } from "../store/appStore";
+import { Role } from "../types";
 
-const bottomNav = {
-  manager: [
-    ["Dashboard", "/manager/dashboard", LayoutDashboard],
-    ["Orders",    "/manager/orders",    ClipboardList],
-    ["Runs",      "/manager/pickup-runs", Truck],
-    ["Finance",   "/manager/finance",   CreditCard],
-  ],
-  buyer: [
-    ["Dashboard", "/buyer/dashboard",   LayoutDashboard],
-    ["Browse",    "/buyer/produce",     ShoppingBasket],
-    ["Orders",    "/buyer/orders",      ClipboardList],
-    ["Track delivery","/buyer/deliveries",  Route],
-    ["Invoices",  "/buyer/invoices",    Receipt],
-  ],
-  farmer: [
-    ["Dashboard", "/farmer/dashboard",  LayoutDashboard],
-    ["Inventory", "/farmer/inventory",  Package],
-    ["Allocations","/farmer/allocations", BarChart3],
-    ["Pickups",   "/farmer/pickups",    Truck],
-    ["Payments",  "/farmer/payments",   CreditCard],
-  ],
-} as const;
+// Fixed cross-role shortcuts for the mobile bottom nav — each tab switches
+// role and lands on that role's wired-up module, since mobile has no other
+// way to switch roles (the role switcher lives in the desktop sidebar).
+const MOBILE_NAV: { label: string; href: string; role: Role; icon: typeof Sprout }[] = [
+  { label: "Farmer",  href: "/farmer/dashboard", role: "farmer",  icon: Sprout },
+  { label: "Orders",  href: "/manager/orders",   role: "manager", icon: ClipboardList },
+  { label: "Finance", href: "/manager/finance",  role: "manager", icon: CreditCard },
+  { label: "Browse",  href: "/buyer/produce",    role: "buyer",   icon: ShoppingBasket },
+];
 
 export default function AppShell() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const role = useAppStore((s) => s.role);
-  const notice = useAppStore((s) => s.notice);
-  const tabs = bottomNav[role];
+  const setRole = useAppStore((s) => s.setRole);
 
   return (
     <div className="h-[100dvh] overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
@@ -49,45 +35,20 @@ export default function AppShell() {
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav — fixed cross-role shortcuts */}
       <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 border-t border-slate-200 bg-white flex items-stretch" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {/* Bell tab */}
-        <button
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium relative"
-          style={{ color: notificationsOpen ? "#99C30C" : "#64748b" }}
-          onClick={() => setNotificationsOpen((o) => !o)}
-        >
-          <Bell size={20} />
-          <span>Alerts</span>
-          {notice && <span className="absolute top-2 right-1/2 ml-3 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#FE8B02" }} />}
-        </button>
-        {tabs.map(([label, href, Icon]) => {
-          const isLocked = !ENABLED_HREFS[role].includes(href);
-          if (isLocked) {
-            return (
-              <div
-                key={href}
-                title={`${label} — not available in this prototype`}
-                className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
-                style={{ color: "#cbd5e1", cursor: "not-allowed" }}
-              >
-                <Icon size={20} />
-                <span>{label}</span>
-              </div>
-            );
-          }
-          return (
-            <NavLink
-              key={href}
-              to={href}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
-              style={({ isActive }) => ({ color: isActive ? "#99C30C" : "#64748b" })}
-            >
-              <Icon size={20} />
-              <span>{label}</span>
-            </NavLink>
-          );
-        })}
+        {MOBILE_NAV.map(({ label, href, role, icon: Icon }) => (
+          <NavLink
+            key={href}
+            to={href}
+            onClick={() => setRole(role)}
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium"
+            style={({ isActive }) => ({ color: isActive ? "#99C30C" : "#64748b" })}
+          >
+            <Icon size={20} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
       </nav>
 
       {/* Notifications panel */}
