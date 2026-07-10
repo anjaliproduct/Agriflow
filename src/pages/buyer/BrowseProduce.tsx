@@ -1,4 +1,4 @@
-import { ChevronLeft, Heart, Search, ShoppingCart, Wheat } from "lucide-react";
+import { ChevronLeft, Heart, ListChecks, Search, ShoppingCart, Wheat } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/appStore";
@@ -156,18 +156,27 @@ export default function BrowseProduce() {
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex h-11 items-center justify-between gap-2 px-3 sm:px-4">
           <span className="text-sm font-medium text-slate-900">Browse Produce</span>
-          <button
-            onClick={() => navigate("/buyer/cart", { state: { cart } })}
-            className="relative flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-          >
-            <ShoppingCart size={13} />
-            Cart
-            {cart.length > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#4A7C20" }}>
-                {cart.length}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              <ListChecks size={13} />
+              Bulk select
+            </button>
+            <button
+              onClick={() => navigate("/buyer/cart", { state: { cart } })}
+              className="relative flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              <ShoppingCart size={13} />
+              Cart
+              {cart.length > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#4A7C20" }}>
+                  {cart.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 

@@ -167,7 +167,7 @@ export default function Finance() {
   ];
 
   return (
-    <div className="-m-4 sm:-m-6 min-h-full p-4 sm:p-6" style={{ backgroundColor: "#F7F7F7" }}>
+    <div className="-m-4 sm:-m-6 min-h-full bg-white p-4 sm:p-6">
       <div className="space-y-5">
 
         {/* Header + period filter */}
