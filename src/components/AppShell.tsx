@@ -21,16 +21,15 @@ export default function AppShell() {
   const setRole = useAppStore((s) => s.setRole);
 
   return (
-    <div className="h-[100dvh] overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
+    <div className="h-[100dvh] overflow-hidden" style={{ backgroundColor: "#141f14" }}>
       <div className="flex h-full overflow-hidden">
         {/* Sidebar — desktop only */}
         <div className="hidden sm:flex">
           <Sidebar notificationsOpen={notificationsOpen} onToggleNotifications={() => setNotificationsOpen((open) => !open)} />
-          <div className="w-px shrink-0 bg-slate-200" />
         </div>
 
         {/* Main content */}
-        <main className="min-w-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6 pb-20 sm:pb-6">
+        <main className="my-2 min-w-0 flex-1 overflow-y-auto rounded-tl-xl rounded-bl-xl bg-white p-4 sm:p-6 pb-20 sm:pb-6">
           <Outlet />
         </main>
       </div>
