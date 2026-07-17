@@ -1,7 +1,7 @@
 import { Buyer, Farmer, InventoryItem, Order, PickupRun } from "../types";
 
 export const buyers: Buyer[] = [
-  { id: "b1", name: "Adam's Grocery", location: "Downtown Market", paymentTerms: "Net 7" },
+  { id: "b1", name: "Adam's Grocery", location: "Downtown Market", paymentTerms: "Due on receipt" },
   { id: "b2", name: "FreshMart Distribution", location: "North Hub", paymentTerms: "Net 15" },
   { id: "b3", name: "Garden Table Restaurant", location: "Riverside", paymentTerms: "Due on receipt" },
   { id: "b4", name: "City Basket Retail", location: "Central Warehouse", paymentTerms: "Net 10" },

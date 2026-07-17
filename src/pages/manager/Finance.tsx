@@ -384,12 +384,14 @@ export default function Finance() {
                         <td className="px-4 py-3.5 text-right text-sm text-slate-400">{logistics > 0 ? `−${formatCurrency(logistics)}` : "—"}</td>
                         <td className="px-4 py-3.5 text-right text-sm font-semibold text-slate-900">{formatCurrency(netPayout)}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${order.invoiceStatus === "Generated" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                          <span className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-slate-700">
+                            <span className={`h-1.5 w-1.5 rounded-full ${order.invoiceStatus === "Generated" ? "bg-green-500" : "bg-slate-400"}`} />
                             {order.invoiceStatus === "Generated" ? "Sent" : "Draft"}
                           </span>
                         </td>
                         <td className="px-6 py-3.5 text-center">
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isSettled ? "bg-green-50 text-green-700" : isOverdue ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>
+                          <span className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-slate-700">
+                            <span className={`h-1.5 w-1.5 rounded-full ${isSettled ? "bg-green-500" : isOverdue ? "bg-red-500" : pymtStatus === "Pending" ? "bg-amber-400" : "bg-slate-400"}`} />
                             {isSettled ? "Received" : pymtStatus}
                           </span>
                         </td>
@@ -431,7 +433,8 @@ export default function Finance() {
                         <td className="px-4 py-3.5 text-right text-sm text-slate-400">−{formatCurrency(coopFee)}</td>
                         <td className="px-4 py-3.5 text-right text-sm font-semibold text-slate-900">{formatCurrency(netPayout)}</td>
                         <td className="px-6 py-3.5 text-center">
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isSettled ? "bg-green-50 text-green-700" : status === "Pending" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
+                          <span className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-slate-700">
+                            <span className={`h-1.5 w-1.5 rounded-full ${isSettled ? "bg-green-500" : status === "Pending" ? "bg-amber-400" : "bg-slate-400"}`} />
                             {isSettled ? "Received" : status}
                           </span>
                         </td>

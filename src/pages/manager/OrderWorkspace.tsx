@@ -1,4 +1,4 @@
-import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, FileText, GripVertical, Info as InfoIcon, Leaf, MapPin, MessageCircle, Milestone, Pencil, Plus, Receipt, Search, ShoppingBag, Sprout, Star, Truck, User, Users, Wallet } from "lucide-react";
+import { AlertCircle, BadgePercent, BarChart3, Calendar, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, FileText, GripVertical, Info as InfoIcon, Leaf, MessageCircle, Milestone, MinusCircle, Pencil, Plus, Receipt, Search, ShoppingBag, Sprout, Star, Truck, User, Users, Wallet } from "lucide-react";
 import RouteMap from "../../components/RouteMap";
 import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
@@ -20,7 +20,6 @@ export default function OrderWorkspace() {
 
   const activeStep = order ? getActiveStep(order.status, order.invoiceStatus, order.paymentStatus) : "Allocation";
   const [pickupBlocked, setPickupBlocked] = useState(false);
-  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [confirmationRevealed, setConfirmationRevealed] = useState(false);
   const [driverModalOpen, setDriverModalOpen] = useState(false);
@@ -31,6 +30,8 @@ export default function OrderWorkspace() {
   const [dispatchTime, setDispatchTime] = useState("");
   const [priorityCriteria] = useState<Set<string>>(new Set());
   const [selectedFarmerIds, setSelectedFarmerIds] = useState<Set<string>>(new Set());
+  const [selectedFarmerPayout, setSelectedFarmerPayout] = useState<FarmerPayoutDetail | null>(null);
+  const [farmerPayoutOverrides, setFarmerPayoutOverrides] = useState<Record<string, "On Hold" | "Paid">>({});
 
   function activeStepToWizard(s: Step): number {
     if (s === "Allocation") return 0;
@@ -48,6 +49,8 @@ export default function OrderWorkspace() {
   const [wizardStep, setWizardStep] = useState(() => activeStepToWizard(activeStep));
   // Internal split within the Allocation stage: 0 = Allocation, 1 = Farmer confirmation
   const [allocationSubStep, setAllocationSubStep] = useState<0 | 1>(() => activeSubStepForStatus(activeStep));
+  // Internal split within the Settlement stage: 0 = Buyer Invoice, 1 = Farmer Payout
+  const [settlementSubStep, setSettlementSubStep] = useState<0 | 1>(0);
 
   useEffect(() => {
     if (order) {
@@ -232,7 +235,7 @@ export default function OrderWorkspace() {
               </p>
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-slate-950">
-                  {WIZARD_STEPS[wizardStep]}
+                  {wizardStep === 4 ? (settlementSubStep === 0 ? "Buyer Invoice" : "Farmer Payout") : WIZARD_STEPS[wizardStep]}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   {wizardStep === 0 && allocationSubStep === 0 && "Only farmers who meet the required quality are shown below. Select the ones you'd like to fulfil the order, and we'll automatically distribute the required quantity between them."}
@@ -240,7 +243,8 @@ export default function OrderWorkspace() {
                   {wizardStep === 1 && "Coordinate the farm collection route and assign a driver and vehicle for the pickup run."}
                   {wizardStep === 2 && "Verify the quantity and grade of produce collected at the collection centre against declared amounts."}
                   {wizardStep === 3 && "Dispatch the order to the buyer and track delivery progress to the destination."}
-                  {wizardStep === 4 && "Generate the buyer invoice, confirm payment receipt, and release payouts to farmers."}
+                  {wizardStep === 4 && settlementSubStep === 0 && "Generate the buyer invoice and confirm payment receipt from the buyer."}
+                  {wizardStep === 4 && settlementSubStep === 1 && "Review each farmer's deductions and release their payouts."}
                 </p>
               </div>
 
@@ -391,15 +395,16 @@ export default function OrderWorkspace() {
                 </div>
               )}
 
-              {/* Step 4: Settlement */}
+              {/* Step 4: Settlement (two sub-steps) */}
               {wizardStep === 4 && (
                 <InvoiceCard
                   order={order}
                   invoiceAmount={invoiceAmount}
                   payment={payment}
                   allocationRows={allocationRows}
-                  onOpenInvoice={() => setInvoiceModalOpen(true)}
-                  onReleasePayment={do_.releasePayment}
+                  onSelectFarmer={setSelectedFarmerPayout}
+                  statusOverrides={farmerPayoutOverrides}
+                  section={settlementSubStep === 0 ? "buyer" : "farmer"}
                 />
               )}
 
@@ -418,6 +423,10 @@ export default function OrderWorkspace() {
                     bg = allocationSubStep === 0
                       ? "linear-gradient(to right, #1a1a1a 50%, #e2e8f0 50%)"
                       : "#1a1a1a";
+                  } else if (i === wizardStep && i === WIZARD_STEPS.length - 1) {
+                    bg = settlementSubStep === 0
+                      ? "linear-gradient(to right, #1a1a1a 50%, #e2e8f0 50%)"
+                      : "#1a1a1a";
                   } else if (i === wizardStep) {
                     bg = "#1a1a1a";
                   } else {
@@ -426,7 +435,7 @@ export default function OrderWorkspace() {
                   return (
                     <button
                       key={i}
-                      onClick={() => { setWizardStep(i); if (i === 0) setAllocationSubStep(0); }}
+                      onClick={() => { setWizardStep(i); if (i === 0) setAllocationSubStep(0); if (i === WIZARD_STEPS.length - 1) setSettlementSubStep(0); }}
                       className="h-1 flex-1 rounded-full transition-all"
                       style={{ background: bg }}
                       aria-label={WIZARD_STEPS[i]}
@@ -445,6 +454,8 @@ export default function OrderWorkspace() {
                     } else if (wizardStep === 1) {
                       setAllocationSubStep(1);
                       setWizardStep(0);
+                    } else if (wizardStep === 4 && settlementSubStep === 1) {
+                      setSettlementSubStep(0);
                     } else {
                       setWizardStep((s) => Math.max(0, s - 1));
                     }
@@ -469,8 +480,15 @@ export default function OrderWorkspace() {
                   } else if (wizardStep === 3) {
                     label = "Dispatch order";
                     onClick = () => { do_.advanceOrder("Dispatched"); setWizardStep(4); };
+                  } else if (wizardStep === 4 && settlementSubStep === 0) {
+                    label = "Send Invoice";
+                    if (order.invoiceStatus !== "Generated") {
+                      onClick = () => { do_.generateInvoice(); setSettlementSubStep(1); };
+                    } else {
+                      onClick = () => setSettlementSubStep(1);
+                    }
                   }
-                  if (wizardStep === WIZARD_STEPS.length - 1) {
+                  if (wizardStep === WIZARD_STEPS.length - 1 && settlementSubStep === 1) {
                     label = "Close Order"; onClick = () => do_.releasePayment();
                   }
                   return (
@@ -485,7 +503,8 @@ export default function OrderWorkspace() {
                       {(() => {
                         const isScheduleStep = wizardStep === 1;
                         const scheduleReady = !!assignedDriver && !!pickupDate;
-                        const isSettlement = wizardStep === WIZARD_STEPS.length - 1;
+                        const isSettlement = wizardStep === WIZARD_STEPS.length - 1 && settlementSubStep === 1
+                          && (order.invoiceStatus !== "Generated" || order.status === "Settled" || order.paymentStatus === "Released");
                         const isAllocationStep = wizardStep === 0 && allocationSubStep === 0;
                         const isConfirmationSubStep = wizardStep === 0 && allocationSubStep === 1;
                         const isDispatchStep = wizardStep === 3;
@@ -519,15 +538,23 @@ export default function OrderWorkspace() {
 
         {/* Chat panel — shifts layout, not an overlay */}
         {chatOpen && <OrderChat onClose={() => setChatOpen(false)} />}
-      </div>
 
-      <InvoiceModal
-        open={invoiceModalOpen}
-        order={order}
-        invoiceAmount={invoiceAmount}
-        onConfirm={do_.generateInvoice}
-        onClose={() => setInvoiceModalOpen(false)}
-      />
+        {/* Farmer payout detail modal */}
+        {selectedFarmerPayout && (
+          <FarmerPayoutDetailPanel
+            row={selectedFarmerPayout}
+            onClose={() => setSelectedFarmerPayout(null)}
+            onPutOnHold={() => {
+              setFarmerPayoutOverrides((prev) => ({ ...prev, [selectedFarmerPayout.farmerId]: "On Hold" }));
+              setSelectedFarmerPayout(null);
+            }}
+            onReleasePayment={() => {
+              setFarmerPayoutOverrides((prev) => ({ ...prev, [selectedFarmerPayout.farmerId]: "Paid" }));
+              setSelectedFarmerPayout(null);
+            }}
+          />
+        )}
+      </div>
 
       <DriverAssignModal
         open={driverModalOpen}
@@ -888,6 +915,19 @@ type AllocationRow = {
   reasons: string[];
 };
 
+type FarmerPayoutDetail = {
+  farmerId: string;
+  farmer: string;
+  produce: string;
+  qty: number;
+  gross: number;
+  coopFee: number;
+  logistics: number;
+  net: number;
+  status: string;
+  statusDot: string;
+};
+
 function ConfirmationTable({ allocations, confirmed }: { allocations: ReturnType<typeof suggestAllocation>; confirmed: boolean }) {
   return (
     <div className="-mx-5 border-y border-slate-100">
@@ -1218,6 +1258,13 @@ const BUYER_CONTACTS: Record<string, { contact: string; phone: string }> = {
   "City Basket Retail":      { contact: "Sana Iyer",      phone: "+91 97401 59283" },
 };
 
+const BUYER_GST: Record<string, string> = {
+  "Adam's Grocery":          "29AAACA1234F1Z5",
+  "FreshMart Distribution":  "29AABCF5678K1Z2",
+  "Garden Table Restaurant": "29AAGCT9012R1Z8",
+  "City Basket Retail":      "29AACCB3456L1Z1",
+};
+
 const COLLECTION_CENTER_ADDRESSES: Record<string, string> = {
   "Main Collection Center": "22, Tumkur Road, Peenya Industrial Area, Bangalore — 560058",
   "Leafy Greens Bay":       "8, Hesaraghatta Main Road, Bangalore — 560088",
@@ -1366,15 +1413,17 @@ function InvoiceCard({
   invoiceAmount,
   payment,
   allocationRows,
-  onOpenInvoice,
-  onReleasePayment,
+  onSelectFarmer,
+  statusOverrides,
+  section,
 }: {
   order: ReturnType<typeof useAppStore.getState>["orders"][number];
   invoiceAmount: number;
   payment: ReturnType<typeof getPaymentMeta>;
   allocationRows: AllocationRow[];
-  onOpenInvoice: () => void;
-  onReleasePayment: () => void;
+  onSelectFarmer: (row: FarmerPayoutDetail) => void;
+  statusOverrides: Record<string, "On Hold" | "Paid">;
+  section: "buyer" | "farmer";
 }) {
   const isDelivered = ["Delivered", "Settled"].includes(order.status) || order.paymentStatus === "Released";
   const settled = order.status === "Settled" || order.paymentStatus === "Released";
@@ -1393,195 +1442,340 @@ function InvoiceCard({
     const gross = r.allocated * ratePerKg;
     const coopFee = gross * 0.08;
     const net = Math.max(gross - coopFee - logisticsPerRow, 0);
-    return { farmer: r.farmerName, produce: r.produce, qty: r.allocated, gross, coopFee, logistics: logisticsPerRow, net };
+    return { farmerId: r.farmerId, farmer: r.farmerName, produce: r.produce, qty: r.allocated, gross, coopFee, logistics: logisticsPerRow, net };
   });
 
-  const [detailsOpen, setDetailsOpen] = useState(false);
-
-  const buyerPaymentStatus = order.paymentStatus === "Received" || order.paymentStatus === "Released" ? "Received" : "Awaiting";
   const totalCoopFee = farmerRows.reduce((s, r) => s + r.coopFee, 0);
   const totalLogistics = farmerRows.reduce((s, r) => s + r.logistics, 0);
   const totalNet = farmerRows.reduce((s, r) => s + r.net, 0);
+
+  const { buyers } = useAppStore();
+  const buyerInfo = buyers.find((b) => b.id === order.buyerId);
+  const dueDate = (() => {
+    const days = Number(buyerInfo?.paymentTerms?.match(/\d+/)?.[0] ?? 0);
+    const d = new Date(`${order.deliveryDate}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const invoiceItems = order.items?.length
+    ? order.items
+    : [{ produce: order.produce, quantity: order.quantity, requestedGrade: order.requestedGrade }];
+  const invoiceStatusLabel = order.paymentStatus === "Received" || order.paymentStatus === "Released"
+    ? "Paid"
+    : order.invoiceStatus === "Generated"
+      ? "Sent"
+      : "Draft";
 
   return (
     <>
       <div className="space-y-5">
 
-        {/* Sub-section 1: Buyer's Invoice */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-base font-semibold text-slate-700">Buyer's Invoice</p>
-            <button
-              type="button"
-              onClick={onOpenInvoice}
-              className={`w-[120px] rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors text-center ${order.invoiceStatus === "Generated" ? "invisible" : ""}`}
-            >
-              Create Invoice
-            </button>
-          </div>
-          <div className="grid grid-cols-4 gap-y-5">
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Order Value</p>
-              <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrency(invoiceAmount)}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Order Status</p>
-              <div className="mt-1 flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" />
-                <p className="text-sm text-slate-900">Delivered</p>
+        {/* Sub-stage 1: Buyer's Invoice */}
+        {section === "buyer" && (
+          <div>
+            <div className="grid grid-cols-4 gap-4 pb-5">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">Delivery Status</p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                  <p className="text-sm font-semibold text-slate-900">Delivered</p>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">Due Date</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(dueDate)}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">Payment Terms</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{buyerInfo?.paymentTerms ?? "—"}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">Status</p>
+                <span
+                  className={`mt-1 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    invoiceStatusLabel === "Paid" ? "bg-green-50 text-green-700"
+                    : invoiceStatusLabel === "Sent" ? "bg-blue-50 text-blue-700"
+                    : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {invoiceStatusLabel}
+                </span>
               </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Payment Status</p>
-              <div className="mt-1 flex items-center gap-1.5">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${buyerPaymentStatus === "Received" ? "bg-green-500" : "bg-amber-400"}`} />
-                <p className="text-sm text-slate-900">{buyerPaymentStatus}</p>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Invoice</p>
-              {order.invoiceStatus === "Generated" ? (
-                <button type="button" onClick={onOpenInvoice} className="mt-1 flex items-center gap-1 text-sm text-leaf hover:underline">
-                  <FileText size={12} /> INV-{order.id}
-                </button>
-              ) : (
-                <p className="mt-1 text-sm text-slate-400">—</p>
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bill To</p>
+              <p className="mt-1.5 text-base font-semibold text-slate-900">{order.buyer}</p>
+              <p className="text-sm text-slate-400">{BUYER_ADDRESSES[order.buyer] ?? "—"}</p>
+              <p className="mt-1 text-sm text-slate-400">GSTIN: {BUYER_GST[order.buyer] ?? "—"}</p>
+              {BUYER_CONTACTS[order.buyer] && (
+                <p className="text-sm text-slate-400">{BUYER_CONTACTS[order.buyer].contact} · {BUYER_CONTACTS[order.buyer].phone}</p>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Sub-section 2: Farmer's Payout */}
-        <div className="border-t border-slate-100 pt-5">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-base font-semibold text-slate-700">Farmer's Payout</p>
-            <button
-              type="button"
-              disabled={order.invoiceStatus !== "Generated"}
-              onClick={() => setDetailsOpen(true)}
-              className={`w-[120px] rounded-lg border py-1.5 text-xs font-medium transition-colors text-center ${order.invoiceStatus === "Generated" ? "border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer" : "border-slate-200 text-slate-300 cursor-not-allowed"}`}
-            >
-              Make Payment
-            </button>
+            <div className="mt-6">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Payment Details</p>
+              <div className="space-y-2">
+                {invoiceItems.map((item) => (
+                  <DetailRow
+                    key={item.produce}
+                    label={`${item.produce} × ${item.quantity} kg`}
+                    value={formatCurrency(item.quantity * ratePerKg)}
+                    labelClassName="text-slate-900"
+                  />
+                ))}
+                <div className="border-t border-slate-100 pt-2">
+                  <DetailRow label="Item Subtotal" value={formatCurrency(invoiceAmount)} valueClassName="font-semibold" labelClassName="text-slate-900" />
+                </div>
+                <DetailRow label="Logistics Fee" value={`−${formatCurrency(payment.logisticsCharge)}`} labelClassName="text-slate-900" />
+                <DetailRow label="Co-op Fee" value={`−${formatCurrency(payment.coopFee)}`} labelClassName="text-slate-900" />
+                <DetailRow label="Quality Adjustments" value={`−${formatCurrency(payment.qualityAdjustment)}`} labelClassName="text-slate-900" />
+                <div className="border-t border-slate-100 pt-2">
+                  <DetailRow label="Total Amt" value={formatCurrency(payment.estimatedFarmerPayout)} valueClassName="text-leaf font-bold" labelClassName="text-slate-900" />
+                </div>
+              </div>
+            </div>
+
           </div>
-          <div className="grid grid-cols-4 gap-y-5">
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Net Payout</p>
-              <p className="mt-1 text-sm font-medium text-slate-900">{order.invoiceStatus === "Generated" ? formatCurrency(totalNet) : "—"}</p>
+        )}
+
+        {/* Sub-stage 2: Farmer's Payout */}
+        {section === "farmer" && (
+          <div>
+            <div className="grid grid-cols-4 gap-4">
+              {[
+                {
+                  key: "invoice",
+                  icon: FileText,
+                  iconBg: "#99C30C26",
+                  iconColor: "#546B07",
+                  label: "Total Buyer Invoice",
+                  value: formatCurrency(invoiceAmount),
+                },
+                {
+                  key: "gross",
+                  icon: Sprout,
+                  iconBg: "#FE8B0226",
+                  iconColor: "#8C4C01",
+                  label: "Total Gross",
+                  value: formatCurrency(farmerRows.reduce((s, r) => s + r.gross, 0)),
+                },
+                {
+                  key: "deductions",
+                  icon: MinusCircle,
+                  iconBg: "#EC489926",
+                  iconColor: "#9D174D",
+                  label: "Total Deductions",
+                  value: formatCurrency(totalCoopFee + totalLogistics),
+                },
+                {
+                  key: "net",
+                  icon: Wallet,
+                  iconBg: "#2563EB26",
+                  iconColor: "#1E3A8A",
+                  label: "Total Net Payout",
+                  value: formatCurrency(totalNet),
+                },
+              ].map(({ key, icon: Icon, iconBg, iconColor, label, value }) => (
+                <div
+                  key={key}
+                  className="rounded-2xl border border-slate-100 px-4 py-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: iconBg, color: iconColor }}
+                    >
+                      <Icon size={14} />
+                    </span>
+                    <p className="text-lg font-bold text-slate-900">{value}</p>
+                  </div>
+                  <p className="mt-1.5 text-xs font-medium text-slate-500">{label}</p>
+                </div>
+              ))}
             </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Allocated Farmers</p>
-              <p className="mt-1 text-sm text-slate-900">5</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Coop Fee</p>
-              <p className="mt-1 text-sm text-slate-900">{order.invoiceStatus === "Generated" ? formatCurrency(totalCoopFee) : "—"}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-slate-400">Logistics</p>
-              <p className="mt-1 text-sm text-slate-900">{order.invoiceStatus === "Generated" ? formatCurrency(totalLogistics) : "—"}</p>
+
+            {/* Per-farmer breakdown */}
+            <div className="mt-6">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col />
+                  <col style={{ width: 200 }} />
+                  <col style={{ width: 200 }} />
+                </colgroup>
+                <thead>
+                  <tr className="h-8 border-b border-slate-200 text-slate-400">
+                    <th className="px-2 text-left text-[11px] font-medium uppercase tracking-wide">Farmer</th>
+                    <th className="px-4 text-left text-[11px] font-medium uppercase tracking-wide">Net Payout</th>
+                    <th className="px-4 text-left text-[11px] font-medium uppercase tracking-wide">Payment Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {farmerRows.map((r) => {
+                    const settled = order.status === "Settled" || order.paymentStatus === "Released";
+                    const status = statusOverrides[r.farmerId]
+                      ?? (settled
+                        ? "Paid"
+                        : r.net <= 0
+                          ? "On Hold"
+                          : "Needs Review");
+                    const statusDot =
+                      status === "Paid" ? "bg-green-500"
+                      : status === "On Hold" ? "bg-red-500"
+                      : "bg-amber-500";
+                    return (
+                      <tr
+                        key={r.farmer}
+                        onClick={() => onSelectFarmer({ ...r, status, statusDot })}
+                        className="h-10 cursor-pointer border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
+                      >
+                        <td className="px-2 font-medium text-slate-950">{r.farmer}</td>
+                        <td className="px-4 text-left font-medium text-slate-950">{formatCurrency(r.net)}</td>
+                        <td className="px-4 text-left">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                            <span className={`h-1.5 w-1.5 rounded-full ${statusDot}`} />
+                            {status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="h-10 border-t border-slate-200">
+                    <td className="px-2 font-medium text-slate-700">Total</td>
+                    <td className="px-4 text-left font-semibold text-leaf">{formatCurrency(totalNet)}</td>
+                    <td className="px-4" />
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
-
-      <ReleasePaymentModal
-        open={detailsOpen}
-        allocationRows={allocationRows}
-        payment={payment}
-        invoiceAmount={invoiceAmount}
-        onConfirm={() => { onReleasePayment(); setDetailsOpen(false); }}
-        onClose={() => setDetailsOpen(false)}
-      />
     </>
   );
 }
 
-function ReleasePaymentModal({
-  open,
-  allocationRows,
-  payment,
-  invoiceAmount,
-  onConfirm,
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-slate-100 px-5 py-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{title}</p>
+      <div className="mt-3 space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, valueClassName = "text-slate-950", labelClassName = "text-slate-400" }: { label: string; value: React.ReactNode; valueClassName?: string; labelClassName?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className={`shrink-0 text-sm ${labelClassName}`}>{label}</p>
+      <p className={`truncate text-sm font-medium ${valueClassName}`}>{value}</p>
+    </div>
+  );
+}
+
+function FarmerPayoutDetailPanel({
+  row,
   onClose,
+  onPutOnHold,
+  onReleasePayment,
 }: {
-  open: boolean;
-  allocationRows: AllocationRow[];
-  payment: ReturnType<typeof getPaymentMeta>;
-  invoiceAmount: number;
-  onConfirm: () => void;
+  row: FarmerPayoutDetail;
   onClose: () => void;
+  onPutOnHold: () => void;
+  onReleasePayment: () => void;
 }) {
-  if (!open) return null;
+  const totalDeductions = row.coopFee + row.logistics;
+  const ratePerKg = row.qty > 0 ? row.gross / row.qty : 0;
+  const hasDispute = row.farmer === "Green Valley Farms" || row.farmer === "Nandi Fresh Produce";
+  const disputeNote = `I delivered ${row.qty} kg of ${row.produce}. I don't think all of it should have failed the quality check.`;
 
-  const totalQty = allocationRows.reduce((s, r) => s + r.allocated, 0);
-  const ratePerKg = totalQty > 0 ? invoiceAmount / totalQty : 0;
-  const coopFeeRate = 0.08;
-  const logisticsPerRow = allocationRows.length > 0 ? payment.logisticsCharge / allocationRows.length : 0;
-
-  const rows = allocationRows.map((r) => {
-    const gross = r.allocated * ratePerKg;
-    const coopFee = gross * coopFeeRate;
-    const logistics = logisticsPerRow;
-    const net = Math.max(gross - coopFee - logistics, 0);
-    return { farmer: r.farmerName, produce: r.produce, qty: r.allocated, gross, coopFee, logistics, net };
-  });
+  const seed = row.farmerId.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const verifiedQty = seed % 3 === 0
+    ? row.qty
+    : seed % 3 === 1
+      ? row.qty - Math.max(1, Math.floor(row.qty * 0.04))
+      : row.qty + Math.max(1, Math.floor(row.qty * 0.03));
+  const requiredCost = row.qty * ratePerKg;
+  const verifiedCost = verifiedQty * ratePerKg;
+  const varianceCost = verifiedCost - requiredCost;
+  const totalDeductionsWithVariance = totalDeductions - varianceCost;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">Payment Details</p>
-            <p className="mt-0.5 text-xs text-slate-400">Review each farmer's deductions and approve to release payment.</p>
-          </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-100 px-5">
+          <p className="truncate text-sm font-semibold text-slate-900">Farmer Payout for {row.farmer}</p>
+          <button type="button" onClick={onClose} className="shrink-0 text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
         </div>
 
-        <div className="px-6 py-5">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
-                <th className="pb-2.5 font-medium">Farmer</th>
-                <th className="pb-2.5 font-medium">Produce</th>
-                <th className="pb-2.5 text-right font-medium">Qty</th>
-                <th className="pb-2.5 text-right font-medium">Gross</th>
-                <th className="pb-2.5 text-right font-medium">Coop Fee</th>
-                <th className="pb-2.5 text-right font-medium">Logistics</th>
-                <th className="pb-2.5 text-right font-medium">Net Payout</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => (
-                <tr key={r.farmer}>
-                  <td className="py-2.5 font-medium text-slate-900">{r.farmer}</td>
-                  <td className="py-2.5 text-slate-500">{r.produce}</td>
-                  <td className="py-2.5 text-right text-slate-500">{r.qty} kg</td>
-                  <td className="py-2.5 text-right text-slate-500">{formatCurrency(r.gross)}</td>
-                  <td className="py-2.5 text-right text-slate-500">−{formatCurrency(r.coopFee)}</td>
-                  <td className="py-2.5 text-right text-slate-500">−{formatCurrency(r.logistics)}</td>
-                  <td className="py-2.5 text-right font-semibold text-slate-950">{formatCurrency(r.net)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-slate-200 bg-slate-50 text-xs font-medium">
-                <td className="py-2.5 pl-0 text-slate-500">Total</td>
-                <td />
-                <td className="py-2.5 text-right text-slate-600">{rows.reduce((s, r) => s + r.qty, 0)} kg</td>
-                <td className="py-2.5 text-right text-slate-600">{formatCurrency(rows.reduce((s, r) => s + r.gross, 0))}</td>
-                <td className="py-2.5 text-right text-slate-600">−{formatCurrency(rows.reduce((s, r) => s + r.coopFee, 0))}</td>
-                <td className="py-2.5 text-right text-slate-600">−{formatCurrency(rows.reduce((s, r) => s + r.logistics, 0))}</td>
-                <td className="py-2.5 text-right font-semibold text-leaf">{formatCurrency(rows.reduce((s, r) => s + r.net, 0))}</td>
-              </tr>
-            </tfoot>
-          </table>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+
+          <Section title="Summary">
+            <DetailRow label="Gross Amount" value={formatCurrency(row.gross)} />
+            <DetailRow label="Total Deductions" value={`−${formatCurrency(totalDeductions)}`} valueClassName="text-red-600" />
+            <div className="mt-2 flex items-center justify-between rounded-xl bg-green-50 px-3 py-2.5">
+              <p className="text-sm font-medium text-green-800">Net Payout</p>
+              <p className="text-base font-bold text-green-800">{formatCurrency(row.net)}</p>
+            </div>
+          </Section>
+
+          <Section title="Produce Supplied">
+            <div className="flex items-center gap-3">
+              {PRODUCE_IMAGES[row.produce] && (
+                <img src={PRODUCE_IMAGES[row.produce]} alt={row.produce} className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{row.produce}</p>
+                <p className="text-xs text-slate-400">{formatCurrency(ratePerKg)} / kg</p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Required</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{row.qty} kg</p>
+                <p className="text-xs text-slate-500">{formatCurrency(requiredCost)}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Verified</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{verifiedQty} kg</p>
+                <p className="text-xs text-slate-500">{formatCurrency(verifiedCost)}</p>
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Deductions & Adjustments">
+            <DetailRow label="Co-op Fee (8%)" value={`−${formatCurrency(row.coopFee)}`} valueClassName="text-red-600" />
+            <DetailRow label="Logistics" value={`−${formatCurrency(row.logistics)}`} valueClassName="text-red-600" />
+            <DetailRow
+              label="Quality Variance"
+              value={`${varianceCost >= 0 ? "+" : "−"}${formatCurrency(Math.abs(varianceCost))}`}
+              valueClassName={varianceCost >= 0 ? "text-green-600" : "text-red-600"}
+            />
+            <div className="border-t border-slate-100 pt-2">
+              <DetailRow label="Total Deductions" value={`−${formatCurrency(totalDeductionsWithVariance)}`} valueClassName="text-red-600 font-semibold" />
+            </div>
+          </Section>
+
+          {hasDispute && (
+            <Section title="Dispute">
+              <textarea
+                readOnly
+                value={disputeNote}
+                rows={3}
+                className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+              />
+            </Section>
+          )}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" onClick={onConfirm}>Release Payment</button>
+        {/* Actions */}
+        <div className="flex shrink-0 items-center gap-3 border-t border-slate-100 px-5 py-4">
+          <button type="button" className="btn-secondary flex-1 rounded-xl" onClick={onPutOnHold}>Put On Hold</button>
+          <button type="button" className="btn-primary flex-1 rounded-xl" onClick={onReleasePayment}>Release Payment</button>
         </div>
       </div>
     </div>
@@ -1853,86 +2047,6 @@ function DriverAssignModal({
             style={{ backgroundColor: "#095F25" }}
           >
             Assign
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InvoiceModal({
-  open,
-  order,
-  invoiceAmount,
-  onConfirm,
-  onClose,
-}: {
-  open: boolean;
-  order: ReturnType<typeof useAppStore.getState>["orders"][number];
-  invoiceAmount: number;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-  const items = order.items?.length
-    ? order.items
-    : [{ produce: order.produce, quantity: order.quantity, requestedGrade: order.requestedGrade }];
-  const ratePerKg = 2.4;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {/* Modal header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <p className="text-sm font-semibold text-slate-950">Invoice preview</p>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
-        </div>
-
-        {/* Invoice body */}
-        <div className="px-6 py-5 space-y-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Bill to</p>
-              <p className="mt-0.5 text-base font-semibold text-slate-950">{order.buyer}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-400">Invoice</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-950">INV-{order.id}</p>
-              <p className="text-xs text-slate-400">{formatDate(new Date().toISOString().slice(0, 10))}</p>
-            </div>
-          </div>
-
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
-                <th className="pb-2 font-medium">Item</th>
-                <th className="pb-2 text-right font-medium">Qty</th>
-                <th className="pb-2 text-right font-medium">Rate</th>
-                <th className="pb-2 text-right font-medium">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {items.map((item) => (
-                <tr key={item.produce}>
-                  <td className="py-2.5 text-slate-900">{item.produce}</td>
-                  <td className="py-2.5 text-right text-slate-500">{item.quantity} kg</td>
-                  <td className="py-2.5 text-right text-slate-500">${ratePerKg}/kg</td>
-                  <td className="py-2.5 text-right font-medium text-slate-900">{formatCurrency(item.quantity * ratePerKg)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-slate-200">
-                <td colSpan={3} className="pt-3 text-right text-sm font-semibold text-slate-950">Total</td>
-                <td className="pt-3 text-right text-sm font-bold text-slate-950">{formatCurrency(invoiceAmount)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <div className="border-t border-slate-100 px-6 py-4">
-          <button className="btn-primary w-full" onClick={() => { onConfirm(); onClose(); }}>
-            <FileText size={15} /> Confirm & Send Invoice
           </button>
         </div>
       </div>
